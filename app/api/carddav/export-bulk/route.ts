@@ -142,6 +142,7 @@ export const POST = withAuth(async (request, session) => {
               where: { id: person.id },
               data: { uid },
             });
+            person.uid = uid;
           }
 
           // Convert to vCard
