@@ -1,0 +1,42 @@
+name: Upstream Sync Check
+
+on:
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  compare:
+    name: Compare master with upstream
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check whether master matches upstream
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          comparison="$(gh api "repos/mattogodoy/nametag/compare/master...benwmerritt:master")"
+          status="$(jq -r '.status' <<<"$comparison")"
+          behind="$(jq -r '.behind_by' <<<"$comparison")"
+          ahead="$(jq -r '.ahead_by' <<<"$comparison")"
+
+          if [[ "$status" == "identical" ]]; then
+            exit 0
+          fi
+
+          title="Sync master with upstream Nametag"
+          body="Fork master does not match mattogodoy/nametag:master. Status: ${status}. Behind: ${behind}. Ahead: ${ahead}. Keep master as a clean upstream mirror. Home-only changes belong on prod."
+          existing="$(gh issue list --repo "$REPOSITORY" --state open --search "$title in:title" --json number --jq '.[0].number // empty')"
+
+          if [[ -z "$existing" ]]; then
+            gh issue create --repo "$REPOSITORY" --title "$title" --body "$body"
+          else
+            gh issue comment "$existing" --repo "$REPOSITORY" --body "$body"
+          fi
+
+          exit 1
