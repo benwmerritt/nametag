@@ -17,6 +17,13 @@ vi.mock('../../lib/prisma', () => ({
       update: mocks.importantDateUpdate,
     },
     person: { findMany: mocks.personFindMany, update: mocks.personUpdate },
+    // dispatch.ts reads emailRemindersEnabled through this. An empty result
+    // means every user defaults to email-enabled, so behaviour here is
+    // unchanged.
+    user: { findMany: vi.fn().mockResolvedValue([]) },
+    // dispatch.ts also reads configured ntfy endpoints through this. An empty
+    // result means no endpoints, so behaviour here is unchanged.
+    notificationEndpoint: { findMany: vi.fn().mockResolvedValue([]) },
     cronJobLog: { create: mocks.cronLogCreate, update: mocks.cronLogUpdate },
   },
 }));

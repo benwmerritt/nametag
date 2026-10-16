@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getRedis, isRedisConnected } from './redis';
 import { securityLogger } from './logger';
-import { rateLimitConfigs, type RateLimitType } from './rate-limit';
+import {
+  rateLimitConfigs,
+  buildRateLimitKey,
+  maxAttemptsForKey,
+  type RateLimitType,
+} from './rate-limit';
+import { resolveTrustedClientIp } from '@/lib/net/client-ip';
 
 /**
  * Redis-based distributed rate limiting
@@ -39,24 +45,12 @@ function cleanupMemoryStore() {
 }
 
 /**
- * Get client IP from request
- */
-function getClientIp(request: Request): string {
-  const forwardedFor = request.headers.get('x-forwarded-for');
-  if (forwardedFor) {
-    return forwardedFor.split(',')[0].trim();
-  }
-
-  const realIp = request.headers.get('x-real-ip');
-  if (realIp) {
-    return realIp;
-  }
-
-  return 'unknown';
-}
-
-/**
  * Check rate limit using Redis
+ *
+ * `ip` here is a logging annotation only (passed through to
+ * securityLogger). The bucket `key` is built by the caller from a trusted
+ * IP resolution, so this function never uses `ip` for anything that gates
+ * behaviour.
  */
 async function checkRateLimitRedis(
   key: string,
@@ -226,14 +220,19 @@ export async function checkRateLimit(
   identifier?: string
 ): Promise<NextResponse | null> {
   const config = rateLimitConfigs[type];
-  const ip = getClientIp(request);
-  const key = identifier ? `ratelimit:${type}:${ip}:${identifier}` : `ratelimit:${type}:${ip}`;
+  const ip = resolveTrustedClientIp(request);
+  const bucketKey = buildRateLimitKey(type, ip, identifier);
+  const key = `ratelimit:${bucketKey}`;
 
   return checkRateLimitRedis(
     key,
-    config.maxAttempts,
+    // Computed from the bucket key, not the config alone, so the shared
+    // fallback gets the same widened ceiling here as in the in-memory
+    // limiter. Two independent copies of that rule is how the two would
+    // drift into disagreeing about how many requests an endpoint allows.
+    maxAttemptsForKey(type, bucketKey),
     config.windowMs,
-    ip,
+    ip ?? 'unknown',
     type,
     identifier
   );
@@ -248,15 +247,20 @@ export async function resetRateLimit(
   identifier?: string
 ): Promise<void> {
   const redis = getRedis();
-  const ip = getClientIp(request);
-  const key = identifier ? `ratelimit:${type}:${ip}:${identifier}` : `ratelimit:${type}:${ip}`;
+  const ip = resolveTrustedClientIp(request);
+  // report: false for the same reason as the in-memory reset path. Deleting a
+  // bucket is not a request being gated, so it must not count toward the
+  // occurrences figure the no-trusted-IP warning publishes. Note this
+  // function has no production callers today; see the comment on
+  // buildRateLimitKey.
+  const key = `ratelimit:${buildRateLimitKey(type, ip, identifier, { report: false })}`;
 
   if (redis && isRedisConnected()) {
     try {
       await redis.del(key);
     } catch (error) {
       // Log but don't throw
-      securityLogger.suspiciousActivity(ip, 'Failed to reset rate limit', {
+      securityLogger.suspiciousActivity(ip ?? 'unknown', 'Failed to reset rate limit', {
         type,
         identifier,
         error: error instanceof Error ? error.message : 'Unknown error',

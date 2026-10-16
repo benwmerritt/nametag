@@ -35,6 +35,13 @@ vi.mock('../../lib/prisma', () => ({
       findMany: mocks.personFindMany,
       update: mocks.personUpdate,
     },
+    // dispatch.ts reads emailRemindersEnabled through this. An empty result
+    // means every user defaults to email-enabled, so behaviour here is
+    // unchanged.
+    user: { findMany: vi.fn().mockResolvedValue([]) },
+    // dispatch.ts also reads configured ntfy endpoints through this. An empty
+    // result means no endpoints, so behaviour here is unchanged.
+    notificationEndpoint: { findMany: vi.fn().mockResolvedValue([]) },
     cronJobLog: {
       create: mocks.cronJobLogCreate,
       update: mocks.cronJobLogUpdate,
@@ -42,12 +49,27 @@ vi.mock('../../lib/prisma', () => ({
   },
 }));
 
-// Mock email
+// Mock email. dispatch.ts imports isEmailConfigured from this module, and
+// renderEmail may reach for emailTemplates.importantDateLeadReminder or
+// emailTemplates.weeklyDigest depending on the fixture, so both are supplied
+// here even though this file's fixtures only exercise the important-date and
+// contact templates today.
 vi.mock('../../lib/email', () => ({
   sendEmailBatch: mocks.sendEmailBatch,
+  isEmailConfigured: () => true,
   emailTemplates: {
     importantDateReminder: mocks.importantDateReminderTemplate,
     contactReminder: mocks.contactReminderTemplate,
+    importantDateLeadReminder: vi.fn(() => ({
+      subject: 'lead reminder',
+      html: '<p>lead reminder</p>',
+      text: 'lead reminder',
+    })),
+    weeklyDigest: vi.fn(() => ({
+      subject: 'weekly digest',
+      html: '<p>weekly digest</p>',
+      text: 'weekly digest',
+    })),
   },
 }));
 
@@ -102,7 +124,6 @@ vi.mock('../../lib/api-utils', () => ({
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }),
-  getClientIp: vi.fn(() => '127.0.0.1'),
   withLogging: vi.fn((fn: (...args: unknown[]) => unknown) => fn),
 }));
 

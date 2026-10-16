@@ -20,6 +20,9 @@ const eslintConfig = defineConfig([
     "**/playwright-report/**",
     "**/test-results/**",
     "**/coverage/**",
+    // Generated docs site output (Astro/Starlight build).
+    "docs/dist/**",
+    "docs/.astro/**",
   ]),
   // Global rules
   {
@@ -42,7 +45,12 @@ const eslintConfig = defineConfig([
       "lib/**/*.ts",
       "instrumentation.ts",
     ],
-    ignores: ["lib/env.ts", "lib/client-features.ts", "lib/vcard-helpers.ts"],
+    ignores: [
+      "lib/env.ts",
+      "lib/client-features.ts",
+      "lib/vcard-helpers.ts",
+      "lib/net/client-ip.ts",
+    ],
     rules: {
       "no-console": "warn",
     },

@@ -6,6 +6,87 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [0.64.0](https://github.com/mattogodoy/nametag/compare/v0.63.0...v0.64.0) (2026-10-15)
+
+
+### Features
+
+* **deploy:** add Unraid and CasaOS app store listings ([#478](https://github.com/mattogodoy/nametag/issues/478)) ([9f53b4c](https://github.com/mattogodoy/nametag/commit/9f53b4c953f27e39f2e0271a2b6076b32d2b86ac))
+* **seo:** serve robots.txt that keeps the app out of search ([#477](https://github.com/mattogodoy/nametag/issues/477)) ([475426a](https://github.com/mattogodoy/nametag/commit/475426a64eb4af099307fb7bb89d6ef768dfa77f))
+
+
+### Bug Fixes
+
+* **env:** treat every blank environment variable as unset ([#479](https://github.com/mattogodoy/nametag/issues/479)) ([90f5cd4](https://github.com/mattogodoy/nametag/commit/90f5cd41da76f48cf3682fd2e3dc0b85b7941a3c))
+* **i18n:** update formPreviewYour in de-DE, ja-JP and nb-NO ([#471](https://github.com/mattogodoy/nametag/issues/471)) ([c5feaa0](https://github.com/mattogodoy/nametag/commit/c5feaa0ccc76ae9b3f6d6c86cd8acfb2f5748797))
+
+## [0.63.0](https://github.com/mattogodoy/nametag/compare/v0.62.0...v0.63.0) (2026-09-21)
+
+
+### Features
+
+* **photos:** add lightbox viewer for person avatar ([#469](https://github.com/mattogodoy/nametag/issues/469)) ([ae28a5c](https://github.com/mattogodoy/nametag/commit/ae28a5c87157e13ab57210f366bce0f3aa1e2a63))
+
+
+### Bug Fixes
+
+* **graph:** make network graph usable on touch devices ([#467](https://github.com/mattogodoy/nametag/issues/467)) ([4b969dd](https://github.com/mattogodoy/nametag/commit/4b969ddd7693ecf71eeaaf698c0c257871e7a093))
+
+## [0.62.0](https://github.com/mattogodoy/nametag/compare/v0.61.0...v0.62.0) (2026-09-01)
+
+
+### Features
+
+* **notifications:** add ntfy channel and hardened outbound client ([#435](https://github.com/mattogodoy/nametag/issues/435)) ([d5ec6a9](https://github.com/mattogodoy/nametag/commit/d5ec6a9d26c3894d050a80b4b5dd71946c4b868a))
+* **notifications:** add signed outgoing webhooks ([#449](https://github.com/mattogodoy/nametag/issues/449)) ([44306f5](https://github.com/mattogodoy/nametag/commit/44306f5a311bcc6f98b244ff41df31046077db2f))
+* **notifications:** add web push as a reminder channel ([#434](https://github.com/mattogodoy/nametag/issues/434)) ([ae7bebe](https://github.com/mattogodoy/nametag/commit/ae7bebe92e21e776d002e75f51d2c53f8fab0465))
+
+
+### Bug Fixes
+
+* **notifications:** harden the notification channels release ([#459](https://github.com/mattogodoy/nametag/issues/459)) ([b616df3](https://github.com/mattogodoy/nametag/commit/b616df33ec9a021489a2090451a95eca850bb671))
+* **security:** resolve the client IP from a declared trusted proxy ([#450](https://github.com/mattogodoy/nametag/issues/450)) ([0216668](https://github.com/mattogodoy/nametag/commit/0216668807c84d749dc79f1cd56c9271c9c15eff))
+* **security:** scope the shared-bucket widening, and untrack Playwright output ([#461](https://github.com/mattogodoy/nametag/issues/461)) ([aa0f381](https://github.com/mattogodoy/nametag/commit/aa0f381d85252a52d735b04c372a6609ecb7d6f2))
+* **security:** stop one caller denying authentication instance-wide (GHSA-qwj2-9jr7-f273) ([#460](https://github.com/mattogodoy/nametag/issues/460)) ([7dc3a7e](https://github.com/mattogodoy/nametag/commit/7dc3a7e2c704d0640b6968aef107f69b761623db))
+
+## [0.61.0](https://github.com/mattogodoy/nametag/compare/v0.60.0...v0.61.0) (2026-08-26)
+
+
+### Features
+
+* **i18n:** add French (fr-FR) translation ([#428](https://github.com/mattogodoy/nametag/issues/428)) ([5d46e70](https://github.com/mattogodoy/nametag/commit/5d46e7069c3613a84426177aa7755d0d0e255523))
+
+
+### Bug Fixes
+
+* **i18n:** use 'today' wording for same-day reminder emails ([#432](https://github.com/mattogodoy/nametag/issues/432)) ([f996a35](https://github.com/mattogodoy/nametag/commit/f996a355363ac457908d7ecf08fc448f755563e6))
+
+## [0.60.0](https://github.com/mattogodoy/nametag/compare/v0.59.1...v0.60.0) (2026-08-26)
+
+
+### Features
+
+* **nav:** give mobile search its own button and fold the user menu into the drawer ([#427](https://github.com/mattogodoy/nametag/issues/427)) ([ae68c4a](https://github.com/mattogodoy/nametag/commit/ae68c4aa9ad97d242cf8c7ec552622bcb802f2e4))
+
+
+### Bug Fixes
+
+* **nav:** give the merge and duplicates pages their account menu back ([#429](https://github.com/mattogodoy/nametag/issues/429)) ([7394e60](https://github.com/mattogodoy/nametag/commit/7394e60ff0187433c385fa9193e61ea93fcd7868))
+
+## [0.59.1](https://github.com/mattogodoy/nametag/compare/v0.59.0...v0.59.1) (2026-08-25)
+
+
+### Bug Fixes
+
+* **a11y:** raise settings message contrast to WCAG AA ([#426](https://github.com/mattogodoy/nametag/issues/426)) ([70d609f](https://github.com/mattogodoy/nametag/commit/70d609f250fd13fc09e74fe8b1d141a43b844615)), closes [#411](https://github.com/mattogodoy/nametag/issues/411)
+* **i18n:** replace 12 en-dashes in de-DE and nb-NO locale files ([#424](https://github.com/mattogodoy/nametag/issues/424)) ([191f687](https://github.com/mattogodoy/nametag/commit/191f687355a212018a093f009ed1d29fd63e809f)), closes [#410](https://github.com/mattogodoy/nametag/issues/410)
+* **people:** redirect to newly created person when known-through is not You ([#419](https://github.com/mattogodoy/nametag/issues/419)) ([bd1ceaf](https://github.com/mattogodoy/nametag/commit/bd1ceaf74229eed8720612988f0e349808792faa))
+* **release:** clarify that Docker users don't need to run migrations manually ([#414](https://github.com/mattogodoy/nametag/issues/414)) ([8af385d](https://github.com/mattogodoy/nametag/commit/8af385d19241de5607e70371e76e20af5c9daf9d))
+* **reminders:** guard stamp updates to prevent duplicate emails ([#422](https://github.com/mattogodoy/nametag/issues/422)) ([9ad8765](https://github.com/mattogodoy/nametag/commit/9ad876526e48b037b1042c236d28ac6da3159421)), closes [#408](https://github.com/mattogodoy/nametag/issues/408)
+* **reminders:** unify next-occurrence logic between dashboard and day-of email ([#421](https://github.com/mattogodoy/nametag/issues/421)) ([1d1e891](https://github.com/mattogodoy/nametag/commit/1d1e89190cb3fd75fb2dce88ffed334dfea74862))
+* **ui:** remove descriptions from mobile settings dropdown ([#425](https://github.com/mattogodoy/nametag/issues/425)) ([4742629](https://github.com/mattogodoy/nametag/commit/47426297eb98f805bdd95ca15801b8ae0ab30842))
+* **unsubscribe:** disable reminder before burning token ([#423](https://github.com/mattogodoy/nametag/issues/423)) ([a09393e](https://github.com/mattogodoy/nametag/commit/a09393e017651cba972c6a1fd478fc932a96b74b))
+
 ## [0.59.0](https://github.com/mattogodoy/nametag/compare/v0.58.5...v0.59.0) (2026-08-13)
 
 

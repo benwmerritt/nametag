@@ -20,6 +20,7 @@ import {
   validateRequest,
   bulkOrphansSchema,
   bulkActionSchema,
+  createEndpointSchema,
 } from '@/lib/validations';
 
 describe('validations', () => {
@@ -816,6 +817,80 @@ describe('validations', () => {
         });
         expect(result.success).toBe(false);
       });
+    });
+  });
+
+  describe('createEndpointSchema', () => {
+    const valid = { type: 'NTFY' as const, label: 'Phone', url: 'https://ntfy.sh/my-topic' };
+
+    it('accepts a request with no token', () => {
+      expect(createEndpointSchema.safeParse(valid).success).toBe(true);
+    });
+
+    it('accepts an ordinary printable-ASCII token', () => {
+      const result = createEndpointSchema.safeParse({ ...valid, token: 'tk_secret-Value.123' });
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects a token containing CRLF', () => {
+      // A CRLF in a header value makes Node's HTTP client throw
+      // synchronously when the request is built. Rejecting it here, rather
+      // than at send time, means the user sees a validation error instead of
+      // a destination that fails every night for a reason with no fix.
+      const result = createEndpointSchema.safeParse({
+        ...valid,
+        token: 'tk_secret\r\nX-Injected: true',
+      });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects a token containing a non-latin1 character', () => {
+      const result = createEndpointSchema.safeParse({ ...valid, token: 'tk_sécret' });
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects a token containing a plain space', () => {
+      const result = createEndpointSchema.safeParse({ ...valid, token: 'tk secret' });
+      expect(result.success).toBe(false);
+    });
+
+    it('accepts a webhook branch', () => {
+      // The union arm the deprecated createNtfyEndpointSchema alias could not
+      // reach, which is the whole reason these tests were repointed: the
+      // route validates with the union, so a test against one arm stops
+      // meaning anything the moment the union changes.
+      const result = createEndpointSchema.safeParse({
+        type: 'WEBHOOK',
+        label: 'My receiver',
+        url: 'https://hooks.example.com/abc',
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('does not let a webhook smuggle in an ntfy token', () => {
+      // `token` belongs to the NTFY arm only. A discriminated union must not
+      // carry it across, or a webhook would get a secret column populated
+      // with a value the signing path never generated.
+      const result = createEndpointSchema.safeParse({
+        type: 'WEBHOOK',
+        label: 'My receiver',
+        url: 'https://hooks.example.com/abc',
+        token: 'tk_should_not_apply',
+      });
+
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect('token' in result.data).toBe(false);
+      }
+    });
+
+    it('rejects an unknown endpoint type', () => {
+      const result = createEndpointSchema.safeParse({
+        type: 'SMOKE_SIGNAL',
+        label: 'Nope',
+        url: 'https://example.com/x',
+      });
+      expect(result.success).toBe(false);
     });
   });
 });

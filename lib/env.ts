@@ -14,6 +14,34 @@ const booleanFromString = z
   .or(z.boolean())
   .default(false);
 
+/**
+ * Treat a blank value as "not set".
+ *
+ * `VAR=` in `.env`, and every field left empty in tools like the Unraid
+ * template editor, reaches `process.env` as the empty string rather than as
+ * `undefined`. Zod's `.optional()` and `.default()` only fire for
+ * `undefined`, so without this an empty optional value either fails
+ * validation and stops the app from starting (`REDIS_URL=` is not a valid
+ * URL, `SMTP_HOST=` is shorter than 1 character), or is silently wrong:
+ * `Number('') === 0`, so `TRUSTED_PROXY_COUNT=` would clear its `.min(0)`
+ * floor and mean "trust no proxy" (collapsing every rate limit into one
+ * shared bucket) instead of the documented 1.
+ *
+ * `DB_PASSWORD` is the one exception: an empty password is a real,
+ * supported value rather than an unset one.
+ */
+const BLANK_IS_MEANINGFUL = new Set(['DB_PASSWORD']);
+
+function withoutBlankValues(source: NodeJS.ProcessEnv): Record<string, string> {
+  const result: Record<string, string> = {};
+  for (const [key, value] of Object.entries(source)) {
+    if (value === undefined) continue;
+    if (value.trim() === '' && !BLANK_IS_MEANINGFUL.has(key)) continue;
+    result[key] = value;
+  }
+  return result;
+}
+
 const envSchema = z.object({
   // Database - either DATABASE_URL or individual DB_* variables
   DATABASE_URL: z.string().min(1).optional(),
@@ -86,6 +114,43 @@ const envSchema = z.object({
   // Photo processing
   PHOTO_SIZE: z.coerce.number().int().min(64).max(4096).default(256),
   PHOTO_QUALITY: z.coerce.number().int().min(1).max(100).default(80),
+
+  // Web push (optional). All three are required together; the channel is
+  // hidden when any is missing. Generate a pair with:
+  //   npm run generate-vapid-keys
+  VAPID_PUBLIC_KEY: z.string().min(1).optional(),
+  VAPID_PRIVATE_KEY: z.string().min(1).optional(),
+  VAPID_SUBJECT: z.string().min(1).optional(),
+
+  // Number of reverse proxy hops in front of this app that are trusted to
+  // append to X-Forwarded-For (or set X-Real-IP). Defaults to 1, matching
+  // both documented reverse-proxy configs (a single nginx or Caddy in
+  // front). See docs/self-hosting/reverse-proxy.md for how to choose a
+  // different value.
+  // A blank value is dropped by withoutBlankValues before parsing; without
+  // that, `Number('')` is 0, which clears the `.min(0)` floor and means
+  // "trust no proxy".
+  TRUSTED_PROXY_COUNT: z.coerce.number().int().min(0).default(1),
+
+  // Which header the trusted proxy actually manages. This cannot be
+  // inferred from the request: a proxy that replaces X-Real-IP but never
+  // touches X-Forwarded-For, and a proxy that correctly appends to
+  // X-Forwarded-For, can produce headers that are indistinguishable at
+  // runtime from a single request. Guessing wrong in either direction
+  // trusts an attacker-controlled value, so the operator must say which
+  // header their proxy sets rather than have the app infer it.
+  // Defaults to 'x-forwarded-for', matching both documented reverse-proxy
+  // configs (nginx with proxy_add_x_forwarded_for, Caddy) and preserving
+  // pre-existing behaviour for anyone upgrading without setting this.
+  // 'cf-connecting-ip' is for deployments behind Cloudflare, which
+  // OVERWRITES CF-Connecting-IP with the visitor address on every request
+  // rather than appending to it. This mode is only sound when the origin
+  // refuses connections that did not come from Cloudflare (IP allowlist,
+  // Authenticated Origin Pulls, or a Cloudflare Tunnel); see
+  // docs/self-hosting/reverse-proxy.md.
+  TRUSTED_PROXY_HEADER: z
+    .enum(['x-forwarded-for', 'x-real-ip', 'cf-connecting-ip'])
+    .default('x-forwarded-for'),
 });
 
 /**
@@ -105,7 +170,7 @@ export type Env = z.infer<typeof envSchema>;
  * Throws an error with details if validation fails
  */
 export function validateEnv(): Env {
-  const result = envSchema.safeParse(process.env);
+  const result = envSchema.safeParse(withoutBlankValues(process.env));
 
   if (!result.success) {
     const errors = result.error.issues.map(
@@ -180,6 +245,42 @@ export function validateEnv(): Env {
   if (hasAnySmtpConfig && (!result.data.SMTP_HOST || !result.data.SMTP_PORT)) {
     console.error('\n❌ Invalid environment variables:\n');
     console.error('  - If any SMTP_* variable is set, both SMTP_HOST and SMTP_PORT are required');
+    console.error('\nPlease check your .env file.\n');
+    throw new Error('Invalid environment configuration');
+  }
+
+  // Partial VAPID config is always a mistake: it means someone intended to
+  // enable push and missed a variable, which would otherwise fail silently by
+  // hiding the feature.
+  const vapidVars = [
+    result.data.VAPID_PUBLIC_KEY,
+    result.data.VAPID_PRIVATE_KEY,
+    result.data.VAPID_SUBJECT,
+  ];
+  const setVapidCount = vapidVars.filter((v) => v !== undefined).length;
+
+  if (setVapidCount > 0 && setVapidCount < 3) {
+    console.error('\n❌ Invalid environment variables:\n');
+    console.error(
+      '  - VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY and VAPID_SUBJECT must all be set together'
+    );
+    console.error('\n  Generate a keypair with: npm run generate-vapid-keys\n');
+    throw new Error('Invalid environment configuration');
+  }
+
+  // RFC 8292 allows either a mailto: address or an https: URL as the VAPID
+  // subject, and the bundled web-push library accepts both. Rejecting https:
+  // here would take the whole app down at startup for a self-hoster who
+  // followed the spec, so both forms are accepted.
+  if (
+    result.data.VAPID_SUBJECT &&
+    !result.data.VAPID_SUBJECT.startsWith('mailto:') &&
+    !result.data.VAPID_SUBJECT.startsWith('https://')
+  ) {
+    console.error('\n❌ Invalid environment variables:\n');
+    console.error(
+      '  - VAPID_SUBJECT must be a mailto: address or an https: URL, for example mailto:admin@example.com'
+    );
     console.error('\nPlease check your .env file.\n');
     throw new Error('Invalid environment configuration');
   }

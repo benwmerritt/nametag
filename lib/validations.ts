@@ -614,6 +614,110 @@ export const createApiTokenSchema = z.object({
 });
 
 // ============================================
+// Notification schemas
+// ============================================
+
+/**
+ * A browser PushSubscription serialised with toJSON().
+ *
+ * Endpoints are long and vary per push service, so the ceiling is generous but
+ * present: an unbounded string here is a free write primitive.
+ */
+export const pushSubscribeSchema = z.object({
+  endpoint: z
+    .string()
+    .url()
+    .max(2000)
+    // Push services always issue https endpoints. Pinning the scheme keeps a
+    // hostile client from storing an http or data URL we would later hand to
+    // the web-push library.
+    .refine((value) => value.startsWith('https://'), {
+      message: 'Endpoint must be an https URL',
+    })
+    // Byte length, not character length. `endpoint` carries a UNIQUE btree
+    // index, and Postgres caps index entries near 2704 bytes, while Zod's
+    // .max() counts UTF-16 code units. Without this, 2000 multi-byte
+    // characters would pass validation and then fail at the index with a raw
+    // 500 instead of a clean 400.
+    .refine((value) => Buffer.byteLength(value, 'utf8') <= 2000, {
+      message: 'Endpoint is too long',
+    }),
+  keys: z.object({
+    p256dh: z.string().min(1).max(255),
+    auth: z.string().min(1).max(255),
+  }),
+});
+
+export const emailRemindersSchema = z.object({
+  enabled: z.boolean(),
+});
+
+/**
+ * ntfy access token, shared by the create and update schemas.
+ *
+ * Sent as a bearer credential in an HTTP header (see sendNtfy), so it is
+ * constrained to printable ASCII: a CRLF or a character outside latin1 makes
+ * Node's HTTP client throw synchronously when the header is built, which
+ * without this check surfaces at send time as "worth trying again" for a
+ * destination that is actually permanently broken, on every reminder, forever.
+ */
+const ntfyTokenSchema = z
+  .string()
+  .min(1)
+  .max(255)
+  .regex(/^[\x21-\x7e]+$/, 'Token must contain only printable ASCII characters, no spaces');
+
+const ntfyEndpointSchema = z.object({
+  type: z.literal('NTFY'),
+  label: z.string().min(1).max(60),
+  url: z.string().url().max(500),
+  // ntfy access token. Optional: public topics need none.
+  token: ntfyTokenSchema.optional(),
+});
+
+const webhookEndpointSchema = z.object({
+  type: z.literal('WEBHOOK'),
+  label: z.string().min(1).max(60),
+  url: z.string().url().max(500),
+  // No secret field. The signing secret is generated server-side; accepting a
+  // user-supplied one would let someone choose a weak or shared value.
+});
+
+export const createEndpointSchema = z.discriminatedUnion('type', [
+  ntfyEndpointSchema,
+  webhookEndpointSchema,
+]);
+
+export const updateEndpointSchema = z.object({
+  label: z.string().min(1).max(60).optional(),
+  enabled: z.boolean().optional(),
+  /**
+   * A replacement URL. Re-validated exactly as at creation, including the
+   * ntfy health probe, so editing cannot reach a state creation refuses.
+   * The endpoint's `type` is deliberately NOT editable: changing an ntfy
+   * destination into a webhook would reinterpret its stored secret as a
+   * signing key rather than a bearer token.
+   */
+  url: z.string().url().max(500).optional(),
+  /**
+   * A replacement ntfy access token.
+   *
+   * `null` clears it (the topic is public, or the token was removed server
+   * side), which is distinct from omitting the field, meaning "leave it as it
+   * is". Without this there is no way back from a `NEXTAUTH_SECRET` rotation:
+   * every stored token becomes undecryptable, the destination fails nightly,
+   * auto-disables, and re-enabling puts it straight back on the same
+   * undecryptable token.
+   */
+  token: ntfyTokenSchema.nullable().optional(),
+  /**
+   * Ask for a new webhook signing secret. The new value is returned once, in
+   * the response, and never again, the same contract as creation.
+   */
+  rotateSecret: z.literal(true).optional(),
+});
+
+// ============================================
 // Helper function for API validation
 // ============================================
 
