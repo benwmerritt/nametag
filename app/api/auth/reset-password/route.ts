@@ -1,17 +1,19 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-errors';
 import * as bcrypt from 'bcryptjs';
 import { prisma } from '@/lib/prisma';
 import { resetPasswordSchema, validateRequest } from '@/lib/validations';
 import { checkRateLimit } from '@/lib/rate-limit';
 import { handleApiError, parseRequestBody, withLogging } from '@/lib/api-utils';
 import { logger } from '@/lib/logger';
+import { invalidateUserSessions } from '@/lib/session-invalidation';
 import { hashToken } from '@/lib/token-hash';
 import { validateOrigin } from '@/lib/csrf';
 import { isFeatureEnabled } from '@/lib/features';
 
 export const POST = withLogging(async function POST(request: Request) {
   if (!validateOrigin(request)) {
-    return NextResponse.json({ error: 'Invalid request origin' }, { status: 403 });
+    return apiError('invalid_origin', 'Invalid request origin');
   }
 
   // Check rate limit
@@ -22,10 +24,7 @@ export const POST = withLogging(async function POST(request: Request) {
 
   try {
     if (!isFeatureEnabled('passwordLogin')) {
-      return NextResponse.json(
-        { error: 'Password login is disabled on this instance.' },
-        { status: 403 }
-      );
+      return apiError('password_login_disabled', 'Password login is disabled on this instance.');
     }
 
     const body = await parseRequestBody(request);
@@ -48,20 +47,15 @@ export const POST = withLogging(async function POST(request: Request) {
     });
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'Invalid or expired reset token. Please request a new password reset.' },
-        { status: 400 }
-      );
+      return apiError('bad_request', 'Invalid or expired reset token. Please request a new password reset.');
     }
 
     // Hash new password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Update user with new password and clear reset token
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
+    // Update password, clear the reset token and sign out every device and browser
+    await invalidateUserSessions(user.id, hashedPassword, {
+      extra: {
         passwordResetToken: null,
         passwordResetExpires: null,
         passwordResetSentAt: null,

@@ -14,7 +14,7 @@ Your name, surname, nickname, email address, and profile photo. Photo uploads su
 ## Appearance
 
 - **Theme**: Light or Dark. Dark is the default.
-- **Language**: choose from all of Nametag's supported languages, including English, Spanish, Japanese, Norwegian, German, Chinese, Italian, Russian, Dutch, and French.
+- **Language**: choose from all of Nametag's supported languages, including English, Spanish, Japanese, Norwegian, German, Chinese, Italian, Russian, Dutch, French, and Polish.
 - **Date format**: MDY, DMY, or YMD.
 - **Name order**: Western (first name, then last name) or Eastern (last name, then first name).
 - **Name display format**: Full name, Nickname Preferred, or Short.
@@ -42,7 +42,15 @@ If the instance has no email delivery configured (no SMTP or Resend, see [Email]
 
 ## Security
 
-Change your password. You'll need to enter your current password to confirm the change.
+### Changing your password
+
+Change your password. You'll need to enter your current password to confirm the change. Changing your password (or resetting it by email) signs you out on every other browser and device, including the mobile app. The browser or app you changed it in stays signed in.
+
+### Signed-in devices
+
+Every Nametag app you sign in to on a phone shows up here, with its platform, app version, when it was last used and when it signed in. Use **Sign out** next to a device you don't recognize, or **Sign out all devices** to sign out every app at once. The app on that device will need to sign in again.
+
+Browser sessions aren't listed here.
 
 ## CardDAV
 
@@ -83,6 +91,6 @@ App version, license information, and links to the GitHub repository, release no
 | Name order | Western (first, then last), Eastern (last, then first) |
 | Name display | Full, Nickname Preferred, Short |
 | Graph mode | Individuals, Bubbles |
-| Supported languages | English, Spanish, Japanese, Norwegian, German, Chinese, Italian, Russian, Dutch, French (10 total) |
+| Supported languages | English, Spanish, Japanese, Norwegian, German, Chinese, Italian, Russian, Dutch, French, Polish (11 total) |
 | Advance notice | On the day only, 1, 3, 7, 14, or 30 days before |
 | Weekly summary | Off (default) or on, with a day of the week to send it |

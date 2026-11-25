@@ -11,7 +11,7 @@ By default, Nametag uses email and password authentication with accounts auto-ve
 
 Out of the box, users register with an email address and password. On self-hosted instances (unlike the hosted service), there's no email verification step: accounts are active immediately after registration, whether or not you've configured [email](/self-hosting/email/). This is intentional. Nametag assumes a self-hosted instance is being run by someone who trusts the people they're giving access to.
 
-Password reset still requires email to be configured, since there needs to be somewhere to send the reset link.
+Password reset still requires email to be configured, since there needs to be somewhere to send the reset link. Resetting a password signs out every device and browser.
 
 Rate limiting protects the login and registration endpoints from brute-force attempts: 5 login attempts per 15 minutes and 3 registration attempts per hour, per client. See [Redis](/self-hosting/redis/) for how this is enforced and what changes without Redis configured.
 
@@ -35,6 +35,8 @@ OIDC_DISPLAY_NAME=Authentik
 All three connection variables, `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET`, must be set together for OIDC to activate. Your provider must serve a `/.well-known/openid-configuration` document at the issuer URL, which is standard for any compliant OIDC provider.
 
 `OIDC_DISPLAY_NAME` controls the label shown on the login button (defaults to "SSO") so it can read "Continue with Authentik" or whatever fits your setup.
+
+The Nametag mobile apps sign in through the same OIDC client. You don't need to register another client or redirect URL for them.
 
 ### Account behavior
 

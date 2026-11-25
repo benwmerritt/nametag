@@ -12,6 +12,7 @@ import { journalPaths } from './journal';
 import { customFieldsPaths } from './customFields';
 import { apiTokenPaths } from './apiTokens';
 import { mapPaths } from './map';
+import { syncPaths } from './sync';
 import { notificationsPaths } from './notifications';
 import { jsonResponse, ref400, ref401, ref404, refSuccess, pathParam, jsonBody, resp, sessionOrToken } from './helpers';
 
@@ -67,6 +68,7 @@ export function generateOpenAPISpec(): OpenAPISpec {
       { name: 'vCard', description: 'Direct vCard file import and upload for preview' },
       { name: 'Photos', description: 'Person and user photo management' },
       { name: 'Map', description: 'Map markers and address geocoding' },
+      { name: 'Sync', description: 'Change feed for native clients' },
       { name: 'Notifications', description: 'Reminder delivery channels: email and browser push' },
       { name: 'Cron', description: 'Background jobs authenticated via CRON_SECRET bearer token' },
       { name: 'System', description: 'Health checks and system endpoints' },
@@ -91,9 +93,18 @@ export function generateOpenAPISpec(): OpenAPISpec {
             'Per-user personal API token sent as `Authorization: Bearer <token>`. ' +
             'Created and revoked in Settings → API Tokens. Read-only (`READ`) tokens are ' +
             'restricted to GET, HEAD, and OPTIONS; a write attempt returns 403. ' +
-            'Each endpoint lists the schemes it accepts: those showing only `session` ' +
-            'reject bearer tokens outright, which covers token management, billing, and ' +
+            'Each endpoint lists the schemes it accepts: those showing only `session` and `deviceSession` ' +
+            'reject API tokens outright, which covers token management, billing, and ' +
             'the CardDAV endpoints that read or replace stored server credentials.',
+        },
+        deviceSession: {
+          type: 'http',
+          scheme: 'bearer',
+          description:
+            'Native app access token (`ntsa_` prefix) sent as `Authorization: Bearer <token>`. ' +
+            'Obtained from POST /api/auth/native/login, valid for one hour, renewed with ' +
+            'POST /api/auth/native/refresh. A 401 with code `access_token_expired` means refresh ' +
+            'and retry. Accepted everywhere a browser session is.',
         },
       },
       schemas: sharedSchemas(),
@@ -111,6 +122,7 @@ export function generateOpenAPISpec(): OpenAPISpec {
       ...customFieldsPaths(),
       ...apiTokenPaths(),
       ...mapPaths(),
+      ...syncPaths(),
       ...notificationsPaths(),
 
       // Photos (non-person-specific)
@@ -118,16 +130,24 @@ export function generateOpenAPISpec(): OpenAPISpec {
         get: {
           tags: ['Photos'],
           summary: 'Get person photo',
-          description: 'Returns the photo image for a person. Served from disk with appropriate MIME type and caching headers.',
+          description: 'Returns the photo image for a person. Served from disk with an ETag; a matching If-None-Match returns 304.',
           security: sessionOrToken(),
-          parameters: [pathParam('personId', 'Person ID')],
+          parameters: [
+            pathParam('personId', 'Person ID'),
+            { name: 'If-None-Match', in: 'header', required: false, schema: { type: 'string' }, description: 'ETag from an earlier response.' },
+          ],
           responses: {
             '200': {
               description: 'Photo image',
+              headers: {
+                ETag: { schema: { type: 'string', description: 'Changes whenever the photo changes. Send it back in If-None-Match to revalidate.' } },
+                'Cache-Control': { schema: { type: 'string', example: 'private, no-cache' } },
+              },
               content: {
                 'image/*': { schema: { type: 'string', format: 'binary' } },
               },
             },
+            '304': { description: 'Not modified: the If-None-Match tag matches the current photo. No body.' },
             '404': ref404(),
           },
         },
@@ -138,13 +158,21 @@ export function generateOpenAPISpec(): OpenAPISpec {
           summary: 'Get current user photo',
           description: 'Returns the photo image for the logged-in user.',
           security: sessionOrToken(),
+          parameters: [
+            { name: 'If-None-Match', in: 'header', required: false, schema: { type: 'string' }, description: 'ETag from an earlier response.' },
+          ],
           responses: {
             '200': {
               description: 'Photo image',
+              headers: {
+                ETag: { schema: { type: 'string', description: 'Changes whenever the photo changes. Send it back in If-None-Match to revalidate.' } },
+                'Cache-Control': { schema: { type: 'string', example: 'private, no-cache' } },
+              },
               content: {
                 'image/*': { schema: { type: 'string', format: 'binary' } },
               },
             },
+            '304': { description: 'Not modified: the If-None-Match tag matches the current photo. No body.' },
             '401': ref401(),
             '404': ref404(),
           },
@@ -461,6 +489,63 @@ export function generateOpenAPISpec(): OpenAPISpec {
               },
               required: ['version'],
             }),
+          },
+        },
+      },
+      '/api/server-info': {
+        get: {
+          tags: ['System'],
+          summary: 'Server capabilities',
+          description:
+            'Describes this server for native clients before sign-in: version, API version, ' +
+            'mode, login methods, registration status and optional features. ' +
+            'Clients must ignore unknown fields.',
+          responses: {
+            '200': jsonResponse('Server info', {
+              type: 'object',
+              properties: {
+                name: { type: 'string', enum: ['Nametag'] },
+                version: { type: 'string', example: '0.64.0' },
+                apiVersion: { type: 'integer', example: 1 },
+                mode: { type: 'string', enum: ['saas', 'selfhosted'] },
+                auth: {
+                  type: 'object',
+                  properties: {
+                    password: { type: 'boolean' },
+                    google: { type: 'boolean' },
+                    oidc: {
+                      type: 'object',
+                      properties: {
+                        enabled: { type: 'boolean' },
+                        name: { type: 'string', example: 'SSO' },
+                      },
+                      required: ['enabled', 'name'],
+                    },
+                    emailVerificationRequired: { type: 'boolean' },
+                    registration: {
+                      type: 'object',
+                      properties: {
+                        enabled: { type: 'boolean' },
+                        reason: { type: 'string', enum: ['passwordLoginDisabled', 'registrationDisabled'] },
+                      },
+                      required: ['enabled'],
+                    },
+                  },
+                  required: ['password', 'google', 'oidc', 'emailVerificationRequired', 'registration'],
+                },
+                features: {
+                  type: 'object',
+                  properties: {
+                    billing: { type: 'boolean' },
+                    cardDav: { type: 'boolean' },
+                    webPush: { type: 'boolean' },
+                  },
+                  required: ['billing', 'cardDav', 'webPush'],
+                },
+              },
+              required: ['name', 'version', 'apiVersion', 'mode', 'auth', 'features'],
+            }),
+            '503': resp('Database unavailable'),
           },
         },
       },

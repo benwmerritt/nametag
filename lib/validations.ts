@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { PREDEFINED_DATE_TYPES } from './important-date-types';
+import { CHALLENGE_PATTERN, STATE_PATTERN, VERIFIER_PATTERN } from './native-auth/pkce';
+import { validationFailed } from './api-errors';
 
 // ============================================
 // Common schemas
@@ -411,6 +413,37 @@ export const updatePasswordSchema = z.object({
   newPassword: passwordSchema,
 });
 
+export const nativeDeviceSchema = z.object({
+  name: z.string().trim().min(1).max(100),
+  platform: z.enum(['IOS', 'ANDROID']),
+  appVersion: z.string().trim().min(1).max(32),
+});
+
+export const nativeLoginSchema = z.object({
+  email: z.string().trim().min(1).max(254),
+  password: z.string().min(1).max(1024),
+  device: nativeDeviceSchema,
+});
+
+export const nativeRefreshSchema = z.object({
+  refreshToken: z.string().min(1).max(256),
+});
+
+export const nativeBrowserStartSchema = z.object({
+  provider: z.enum(['oidc', 'google']),
+  state: z.string().regex(STATE_PATTERN),
+  code_challenge: z.string().regex(CHALLENGE_PATTERN),
+  code_challenge_method: z.literal('S256'),
+  device_name: z.string().trim().min(1).max(100),
+  platform: z.enum(['IOS', 'ANDROID']),
+  app_version: z.string().trim().min(1).max(32),
+});
+
+export const nativeExchangeSchema = z.object({
+  code: z.string().min(1).max(256),
+  codeVerifier: z.string().regex(VERIFIER_PATTERN),
+});
+
 export const updateThemeSchema = z.object({
   theme: z.enum(['LIGHT', 'DARK']),
 });
@@ -648,6 +681,10 @@ export const pushSubscribeSchema = z.object({
   }),
 });
 
+export const pushStatusSchema = z.object({
+  endpoint: pushSubscribeSchema.shape.endpoint,
+});
+
 export const emailRemindersSchema = z.object({
   enabled: z.boolean(),
 });
@@ -730,18 +767,7 @@ export function validateRequest<T>(
   const result = schema.safeParse(data);
 
   if (!result.success) {
-    const errors = result.error.issues.map((issue) => ({
-      field: issue.path.join('.'),
-      message: issue.message,
-    }));
-
-    return {
-      success: false,
-      response: NextResponse.json(
-        { error: 'Validation failed', details: errors },
-        { status: 400 }
-      ),
-    };
+    return { success: false, response: validationFailed(result.error.issues) };
   }
 
   return { success: true, data: result.data };

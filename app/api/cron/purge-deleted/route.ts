@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { apiError } from '@/lib/api-errors';
 import { prismaIncludingDeleted, prisma } from '@/lib/prisma';
 import { env } from '@/lib/env';
 import { handleApiError, withLogging } from '@/lib/api-utils';
@@ -6,8 +7,12 @@ import { resolveTrustedClientIp } from '@/lib/net/client-ip';
 import { hasValidBearerSecret } from '@/lib/shared-secret';
 import { logger, securityLogger } from '@/lib/logger';
 import { deletePersonPhotos } from '@/lib/photo-storage';
+import { deleteIdleDeviceSessions } from '@/lib/native-auth/sessions';
+import { deleteExpiredNativeAuthCodes } from '@/lib/native-auth/codes';
+import { purgeTombstones } from '@/lib/sync/tombstones';
 
 const RETENTION_DAYS = 30;
+const TOMBSTONE_RETENTION_DAYS = 90;
 
 // GET /api/cron/purge-deleted - Permanently delete records older than retention period
 // This endpoint should be called by a cron job daily
@@ -21,7 +26,7 @@ export const GET = withLogging(async function GET(request: Request) {
       securityLogger.authFailure(resolveTrustedClientIp(request) ?? 'unknown', 'Invalid cron secret', {
         endpoint: 'purge-deleted',
       });
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return apiError('unauthorized', 'Unauthorized');
     }
 
     // Log cron job start
@@ -45,6 +50,9 @@ export const GET = withLogging(async function GET(request: Request) {
       groups: 0,
       relationshipTypes: 0,
       people: 0,
+      deviceSessions: 0,
+      nativeAuthCodes: 0,
+      syncTombstones: 0,
     };
 
     // 1. Purge ImportantDates that are soft-deleted past retention
@@ -168,6 +176,18 @@ export const GET = withLogging(async function GET(request: Request) {
     });
     purged.people = peopleResult.count;
 
+    // 10. Delete native app sessions idle past their window
+    const deviceSessionsResult = await deleteIdleDeviceSessions(new Date());
+    purged.deviceSessions = deviceSessionsResult;
+
+    // 11. Delete expired single-use native sign-in codes
+    purged.nativeAuthCodes = await deleteExpiredNativeAuthCodes(new Date());
+
+    // 12. Forget sync tombstones past their retention and raise each user's floor
+    const tombstoneCutoff = new Date();
+    tombstoneCutoff.setDate(tombstoneCutoff.getDate() - TOMBSTONE_RETENTION_DAYS);
+    purged.syncTombstones = await purgeTombstones(prismaIncludingDeleted, tombstoneCutoff);
+
     const result = {
       success: true,
       purged,
@@ -186,7 +206,7 @@ export const GET = withLogging(async function GET(request: Request) {
         data: {
           status: 'completed',
           duration,
-          message: `Purged ${totalPurged} records (${purged.people} people, ${purged.groups} groups, ${purged.relationships} relationships, ${purged.relationshipTypes} relationship types, ${purged.importantDates} important dates, ${purged.personGroups} person-groups)`,
+          message: `Purged ${totalPurged} records (${purged.people} people, ${purged.groups} groups, ${purged.relationships} relationships, ${purged.relationshipTypes} relationship types, ${purged.importantDates} important dates, ${purged.personGroups} person-groups, ${purged.deviceSessions} device sessions)`,
         },
       });
     }

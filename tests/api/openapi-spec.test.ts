@@ -1,5 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { generateOpenAPISpec } from '../../lib/openapi';
+import { resp } from '../../lib/openapi/helpers';
+import { API_ERRORS } from '../../lib/api-errors';
+import type { EndpointUrlRejection } from '../../lib/notifications/endpoint-url';
 
 describe('OpenAPI Specification', () => {
   // Cast to Record for deep property access — the test validates the shape at runtime
@@ -64,14 +67,14 @@ describe('OpenAPI Specification', () => {
     // These accept either a browser session or a personal API token, which is
     // the default for withAuth. Routes that reject tokens list session alone;
     // tests/api/openapi-coverage.test.ts checks that against the route options.
-    const sessionOrToken = [{ session: [] }, { apiToken: [] }];
+    const sessionOrToken = [{ session: [] }, { deviceSession: [] }, { apiToken: [] }];
     expect(spec.paths['/api/dashboard/stats'].get.security).toEqual(sessionOrToken);
     expect(spec.paths['/api/relationships'].get.security).toEqual(sessionOrToken);
     expect(spec.paths['/api/user/profile'].get.security).toEqual(sessionOrToken);
   });
 
   it('should reject API tokens on credential and billing endpoints', () => {
-    const sessionOnly = [{ session: [] }];
+    const sessionOnly = [{ session: [] }, { deviceSession: [] }];
     expect(spec.paths['/api/user/api-tokens'].post.security).toEqual(sessionOnly);
     expect(spec.paths['/api/billing/checkout'].post.security).toEqual(sessionOnly);
     expect(spec.paths['/api/carddav/connection'].post.security).toEqual(sessionOnly);
@@ -83,6 +86,29 @@ describe('OpenAPI Specification', () => {
     expect(spec.paths['/api/openapi.json'].get.security).toBeUndefined();
     expect(spec.paths['/api/docs'].get.security).toBeUndefined();
     expect(spec.paths['/api/health'].get.security).toBeUndefined();
+    expect(spec.paths['/api/server-info'].get.security).toBeUndefined();
+  });
+
+  it('documents every 400 code the endpoint create and update routes return', () => {
+    // A Record keyed on the union, so a rejection code added to
+    // EndpointUrlRejection fails typecheck here until the spec lists it too.
+    const routeCodes: Record<EndpointUrlRejection['code'] | 'credentials_in_url' | 'invalid', true> = {
+      policy: true,
+      dns: true,
+      too_long: true,
+      not_ntfy: true,
+      credentials_in_url: true,
+      invalid: true,
+    };
+    const expected = Object.keys(routeCodes).sort();
+
+    const post = spec.paths['/api/notifications/endpoints'].post.responses['400'];
+    const put = spec.paths['/api/notifications/endpoints/{id}'].put.responses['400'];
+
+    for (const response of [post, put]) {
+      const schema = response.content['application/json'].schema;
+      expect([...schema.properties.code.enum].sort()).toEqual(expected);
+    }
   });
 
   it('should have all $ref paths resolve to existing schemas', () => {
@@ -109,5 +135,16 @@ describe('OpenAPI Specification', () => {
     // ImportantDate.reminderType should use oneOf
     const reminderType = spec.components.schemas.ImportantDate.properties.reminderType;
     expect(reminderType.oneOf).toBeDefined();
+  });
+
+  it('CodedError enumerates every catalog code and describes params and fields', () => {
+    const coded = (spec.components.schemas as Record<string, { properties: Record<string, { enum?: string[] }> }>).CodedError;
+    expect(coded.properties.code.enum?.slice().sort()).toEqual(Object.keys(API_ERRORS).sort());
+    expect(coded.properties).toHaveProperty('params');
+    expect(coded.properties).toHaveProperty('fields');
+  });
+
+  it('generic error responses reference CodedError', () => {
+    expect(JSON.stringify(resp('x'))).toContain('#/components/schemas/CodedError');
   });
 });

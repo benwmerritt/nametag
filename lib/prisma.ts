@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { getEnv } from './env';
+import { isDeadlock, withDeadlockRetry } from './db/deadlock';
 
 // Models that support soft delete
 const SOFT_DELETE_MODELS = ['Person', 'Group', 'Relationship', 'RelationshipType', 'ImportantDate'] as const;
@@ -21,6 +22,19 @@ function createBaseClient() {
 
   return new PrismaClient({
     adapter,
+    // Sync internals are hidden by default: BigInt does not serialize to JSON,
+    // so any route returning a whole row would throw. Sync code opts in per
+    // query with `omit: { syncVersion: false }`.
+    omit: {
+      person: { syncVersion: true },
+      group: { syncVersion: true },
+      relationship: { syncVersion: true },
+      importantDate: { syncVersion: true },
+      relationshipType: { syncVersion: true },
+      journalEntry: { syncVersion: true },
+      customFieldTemplate: { syncVersion: true },
+      user: { syncSeq: true, syncTombstoneFloor: true },
+    },
     log:
       env.NODE_ENV === 'production'
         ? ['error', 'warn']
@@ -28,11 +42,45 @@ function createBaseClient() {
   });
 }
 
-// Create an extended Prisma client with soft-delete filtering
-function createExtendedClient() {
-  const baseClient = createBaseClient();
+/**
+ * True when Prisma says a query runs outside any transaction. Prisma exposes
+ * this only through the undocumented `__internalParams.transaction` (kind
+ * "batch" or "itx" inside one). If that shape ever changes, this answers
+ * false, so nothing is rerun rather than rerun outside its transaction.
+ * tests/db/sync-deadlock.db.test.ts pins the behavior.
+ */
+function isStandalone(params: object): boolean {
+  if (!('__internalParams' in params)) return false;
+  const internal = params.__internalParams;
+  return typeof internal === 'object' && internal !== null
+    && (!('transaction' in internal) || internal.transaction === undefined || internal.transaction === null);
+}
 
-  return baseClient.$extends({
+function createRetryingClient() {
+  return createBaseClient().$extends({
+    // A standalone write can be the victim of a delta sync deadlock (see
+    // lib/db/deadlock.ts); it committed nothing, so it is run again.
+    // Queries inside a transaction are never rerun here: the deadlock aborted
+    // the whole transaction, and rerunning one statement of a batch would run
+    // it on its own, outside the batch. Those callers wrap the whole
+    // transaction in withDeadlockRetry instead.
+    name: 'deadlockRetry',
+    query: {
+      async $allOperations(params) {
+        const { args, query } = params;
+        try {
+          return await query(args);
+        } catch (error) {
+          if (!isDeadlock(error) || !isStandalone(params)) throw error;
+          return withDeadlockRetry(() => query(args));
+        }
+      },
+    },
+  });
+}
+
+function createExtendedClient() {
+  return createRetryingClient().$extends({
     name: 'softDelete',
     query: {
       $allModels: {
@@ -92,7 +140,7 @@ type ExtendedPrismaClient = ReturnType<typeof createExtendedClient>;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: ExtendedPrismaClient | undefined;
-  prismaIncludingDeleted: PrismaClient | undefined;
+  prismaIncludingDeleted: ReturnType<typeof createRetryingClient> | undefined;
 };
 
 export const prisma = globalForPrisma.prisma ?? createExtendedClient();
@@ -112,8 +160,8 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  * Every read through this client is unfiltered, so scope it deliberately. Reach
  * for `prisma` unless the query is specifically about deleted rows.
  */
-export const prismaIncludingDeleted: PrismaClient =
-  globalForPrisma.prismaIncludingDeleted ?? createBaseClient();
+export const prismaIncludingDeleted =
+  globalForPrisma.prismaIncludingDeleted ?? createRetryingClient();
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prismaIncludingDeleted = prismaIncludingDeleted;
