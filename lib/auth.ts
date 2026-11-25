@@ -130,7 +130,8 @@ export async function authorizeCredentials(credentials: {
   };
 }
 
-async function handleOAuthSignIn(
+// Exported for unit tests.
+export async function handleOAuthSignIn(
   user: User,
   account: Account,
   profile: Profile,
@@ -150,6 +151,8 @@ async function handleOAuthSignIn(
       { event: 'auth.login.failed', reason: 'email_not_verified', provider: account.provider },
       'OIDC login rejected: provider did not verify email',
     );
+    const { recordNativeAuthFailure } = await import('@/lib/native-auth/browser-cookie');
+    await recordNativeAuthFailure('email_not_verified');
     throw new Error('OIDC_EMAIL_NOT_VERIFIED');
   }
 
@@ -177,6 +180,8 @@ async function handleOAuthSignIn(
         { event: 'auth.login.failed', reason: 'provider_mismatch', email, existingProvider: existingUser.provider },
         'OAuth login rejected: account already linked to a different provider',
       );
+      const { recordNativeAuthFailure } = await import('@/lib/native-auth/browser-cookie');
+      await recordNativeAuthFailure('account_linked_elsewhere');
       throw new Error('ACCOUNT_LINKED_TO_DIFFERENT_PROVIDER');
     }
     user.id = existingUser.id;
@@ -299,6 +304,19 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return true;
     },
     async jwt({ token, user, trigger, session }) {
+      // An existing token issued before the last password change is rejected.
+      // Returning null makes NextAuth clear the cookie instead of re-issuing a
+      // fresh one with a new iat. Skipped on sign-in, when `user` is present.
+      if (!user) {
+        const { shouldRejectJwt } = await import('@/lib/session-invalidation');
+        // authTime is stable across re-encoding; iat is not. Legacy tokens
+        // without it fall back to iat, and get it persisted below.
+        const authTime = token.authTime ?? (typeof token.iat === 'number' ? token.iat : undefined);
+        if (await shouldRejectJwt({ id: token.id, iat: token.iat, authTime })) {
+          return null;
+        }
+        token.authTime = authTime ?? Math.floor(Date.now() / 1000);
+      }
       if (user) {
         token.id = user.id;
         token.name = user.name;
@@ -306,6 +324,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.nickname = user.nickname;
         token.email = user.email;
         token.photo = user.photo;
+        token.authTime = Math.floor(Date.now() / 1000);
       }
       // Ensure jti exists for blacklist tracking (even on existing sessions)
       if (!token.jti) {
@@ -351,6 +370,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   },
   pages: {
     signIn: '/login',
+    // Sign-in rejections land on /login too, so native sign-ins can be reported.
+    error: '/login',
   },
   session: {
     strategy: 'jwt',

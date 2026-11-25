@@ -1,3 +1,5 @@
+// @vitest-environment node
+// jsdom Blob/FormData globals trip an assertion in the undici bundled with Node 24.
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Use vi.hoisted to create mocks before hoisting
@@ -115,10 +117,11 @@ describe('People Photo API', () => {
       const body = await response.json();
 
       expect(response.status).toBe(400);
-      expect(body.error).toContain('No photo file provided');
+      expect(body.code).toBe('photo_missing');
+      expect(body.error).toBe('No photo file provided');
     });
 
-    it('should return 400 when photo exceeds 50MB', async () => {
+    it('should return 413 when photo exceeds 50MB', async () => {
       mocks.personFindUnique.mockResolvedValue({ id: 'person-1' });
 
       // Create a blob that reports a size > 50MB
@@ -128,7 +131,9 @@ describe('People Photo API', () => {
       const response = await POST(request, context);
       const body = await response.json();
 
-      expect(response.status).toBe(400);
+      expect(response.status).toBe(413);
+      expect(body.code).toBe('photo_too_large');
+      expect(body.params).toEqual({ maxBytes: 50 * 1024 * 1024 });
       expect(body.error).toContain('50MB');
     });
 

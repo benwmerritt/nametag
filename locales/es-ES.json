@@ -64,7 +64,8 @@
     },
     "journal": "Diario",
     "createJournal": "Nueva entrada",
-    "map": "Mapa"
+    "map": "Mapa",
+    "calendar": "Calendario"
   },
   "notifications": {
     "push": {
@@ -152,7 +153,8 @@
         "itIT": "Italiano (Italian)",
         "ruRU": "Русский (Russian)",
         "nlNL": "Nederlands (Dutch)",
-        "frFR": "Français (French)"
+        "frFR": "Français (French)",
+        "plPL": "Polski (Polish)"
       }
     },
     "notifications": {
@@ -220,6 +222,7 @@
       "endpointDisabled": "Desactivado tras fallos repetidos. Arregla el destino y vuelve a activarlo.",
       "endpointDisabledManual": "Desactivado. Vuelve a activarlo cuando quieras recibir recordatorios aquí de nuevo.",
       "endpointEnable": "Volver a activar",
+      "endpointTurnOff": "Desactivar",
       "endpointAddInvalid": "Revisa la URL del tópico e inténtalo de nuevo.",
       "endpointAddRateLimited": "Demasiados intentos. Espera unos minutos e inténtalo de nuevo.",
       "endpointAddDuplicate": "Ya has añadido ese tópico.",
@@ -277,6 +280,7 @@
       "description": "Contraseña y autenticación",
       "passwordTitle": "Contraseña",
       "passwordDescription": "Actualiza tu contraseña para mantener tu cuenta segura.",
+      "passwordSignsOutEverywhere": "Al cambiar tu contraseña se cerrará la sesión en todos los demás navegadores y dispositivos.",
       "currentPassword": "Contraseña actual",
       "newPassword": "Nueva contraseña",
       "confirmPassword": "Confirmar nueva contraseña",
@@ -291,7 +295,27 @@
       "errorValidation": "Por favor, corrige los errores a continuación",
       "errorUpdate": "Error al cambiar la contraseña",
       "errorConnection": "No se puede conectar al servidor. Por favor, verifica tu conexión e inténtalo de nuevo.",
-      "successUpdate": "Contraseña cambiada correctamente"
+      "successUpdate": "Contraseña cambiada correctamente",
+      "devices": {
+        "title": "Dispositivos conectados",
+        "description": "Apps de Nametag con tu cuenta iniciada. Cierra la sesión de cualquier dispositivo que no reconozcas.",
+        "empty": "No hay ninguna app conectada. Cuando inicies sesión en la app de Nametag en un teléfono, aparecerá aquí.",
+        "platformIos": "iOS",
+        "platformAndroid": "Android",
+        "version": "Versión {version}",
+        "lastUsed": "Último uso: {date}",
+        "signedIn": "Conectado el {date}",
+        "signOut": "Cerrar sesión",
+        "signOutAll": "Cerrar sesión en todos los dispositivos",
+        "confirmSignOutTitle": "¿Cerrar sesión en {name}?",
+        "confirmSignOutBody": "La app de este dispositivo tendrá que volver a iniciar sesión.",
+        "confirmSignOutAllTitle": "¿Cerrar sesión en todos los dispositivos?",
+        "confirmSignOutAllBody": "Todas las apps de Nametag con tu cuenta tendrán que volver a iniciar sesión.",
+        "cancel": "Cancelar",
+        "signingOut": "Cerrando sesión...",
+        "loadError": "No se pudieron cargar tus dispositivos. Inténtalo más tarde.",
+        "signOutError": "No se pudo cerrar la sesión de ese dispositivo. Inténtalo de nuevo."
+      }
     },
     "carddav": {
       "title": "Sincronización CardDAV",
@@ -1614,6 +1638,12 @@
     "oneMember": "1 miembro",
     "membersCount": "{count} miembros"
   },
+  "calendar": {
+    "previousMonth": "Mes anterior",
+    "nextMonth": "Mes siguiente",
+    "today": "Hoy",
+    "noEvents": "No hay nada previsto este mes"
+  },
   "map": {
     "title": "Mapa",
     "loading": "Cargando mapa...",
@@ -1823,6 +1853,7 @@
   "errors": {
     "auth": {
       "invalidCredentials": "Correo electrónico o contraseña inválidos",
+      "signInFailed": "No se pudo iniciar sesión. Inténtalo de nuevo.",
       "emailNotVerified": "Por favor, verifica tu correo electrónico antes de iniciar sesión",
       "accountLocked": "Cuenta bloqueada debido a múltiples intentos fallidos de inicio de sesión. Por favor, contacta al soporte.",
       "sessionExpired": "Tu sesión ha expirado. Por favor, inicia sesión de nuevo.",
@@ -2156,6 +2187,12 @@
       "iosStep3": "Toca Añadir",
       "dismiss": "Ahora no",
       "unsupported": "Tu navegador puede permitir instalarla desde su propio menú. Busca Añadir a pantalla de inicio, Instalar o Añadir al Dock."
+    }
+  },
+  "nativeAuth": {
+    "expired": {
+      "title": "Enlace de inicio de sesión caducado",
+      "body": "Este enlace de inicio de sesión ha caducado. Vuelve a la app e inténtalo de nuevo."
     }
   }
 }

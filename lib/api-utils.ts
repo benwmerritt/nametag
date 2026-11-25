@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { Session } from 'next-auth';
 import { randomUUID } from 'node:crypto';
 import { auth } from './auth';
+import { apiError, genericCodeFor, type ApiErrorCode, type ApiErrorParams } from '@/lib/api-errors';
 import { logger, createModuleLogger } from './logger';
 import { validateOrigin } from '@/lib/csrf';
 import { runWithContext, updateContext } from '@/lib/logging/context';
 import { resolveApiToken } from '@/lib/api-tokens';
+import { resolveDeviceAccessToken } from '@/lib/native-auth/sessions';
+import { ACCESS_TOKEN_PREFIX } from '@/lib/native-auth/tokens';
 import {
   resolveTrustedClientIp,
   getRawTrustedProxyHeaderForLogging,
@@ -110,6 +113,14 @@ export const apiResponse = {
     NextResponse.json(data, { status: 201 }),
 
   /**
+   * Return an error with a machine-readable code for native clients
+   * The status comes from the catalog in lib/api-errors.ts.
+   * @example apiResponse.coded('session_expired', 'Session expired')
+   */
+  coded: (code: ApiErrorCode, message: string, params?: ApiErrorParams) =>
+    apiError(code, message, params),
+
+  /**
    * Return success message
    * @example apiResponse.message('Password changed successfully')
    */
@@ -128,37 +139,37 @@ export const apiResponse = {
    * @example apiResponse.error('Invalid input') // returns { error: '...' } with 400 status
    */
   error: (message: string, status = 400) =>
-    NextResponse.json({ error: message }, { status }),
+    NextResponse.json({ error: message, code: genericCodeFor(status) }, { status }),
 
   /**
    * Return 401 Unauthorized
    */
   unauthorized: (message = 'Unauthorized') =>
-    NextResponse.json({ error: message }, { status: 401 }),
+    NextResponse.json({ error: message, code: genericCodeFor(401) }, { status: 401 }),
 
   /**
    * Return 403 Forbidden
    */
   forbidden: (message = 'Forbidden') =>
-    NextResponse.json({ error: message }, { status: 403 }),
+    NextResponse.json({ error: message, code: genericCodeFor(403) }, { status: 403 }),
 
   /**
    * Return 404 Not Found
    */
   notFound: (message = 'Not found') =>
-    NextResponse.json({ error: message }, { status: 404 }),
+    NextResponse.json({ error: message, code: genericCodeFor(404) }, { status: 404 }),
 
   /**
    * Return 413 Payload Too Large
    */
   payloadTooLarge: (message = 'Request body too large') =>
-    NextResponse.json({ error: message }, { status: 413 }),
+    NextResponse.json({ error: message, code: genericCodeFor(413) }, { status: 413 }),
 
   /**
    * Return 500 Internal Server Error
    */
   serverError: (message = 'Internal server error') =>
-    NextResponse.json({ error: message }, { status: 500 }),
+    NextResponse.json({ error: message, code: genericCodeFor(500) }, { status: 500 }),
 };
 
 /**
@@ -173,12 +184,12 @@ export function handleApiError(
   // Handle specific error types with appropriate status codes
   if (error instanceof RequestTooLargeError) {
     logger.warn({ context, ...additionalInfo }, `Request too large in ${context}`);
-    return apiResponse.payloadTooLarge(error.message);
+    return apiError('payload_too_large', error.message);
   }
 
   if (error instanceof InvalidJsonError) {
     logger.warn({ context, ...additionalInfo }, `Invalid JSON in ${context}`);
-    return apiResponse.error(error.message);
+    return apiError('invalid_json', error.message);
   }
 
   const errorObj = error instanceof Error ? error : new Error(String(error));
@@ -194,10 +205,7 @@ export function handleApiError(
 
   if (isDbConnectionError) {
     logger.error({ err: errorObj, context, ...additionalInfo }, `Database connection error in ${context}`);
-    return NextResponse.json(
-      { error: 'Service temporarily unavailable. Please try again later.' },
-      { status: 503 }
-    );
+    return apiError('service_unavailable', 'Service temporarily unavailable. Please try again later.');
   }
 
   logger.error({ err: errorObj, context, ...additionalInfo }, `API Error in ${context}`);
@@ -207,7 +215,7 @@ export function handleApiError(
     ? 'Something went wrong'
     : errorObj.message;
 
-  return apiResponse.serverError(message);
+  return apiError('internal_error', message);
 }
 
 /**
@@ -228,6 +236,10 @@ export function normalizeEmail(email: string): string {
  */
 export interface AuthenticatedSession extends Session {
   user: Session['user'] & { id: string };
+  /** How this request authenticated. Absent only in legacy test doubles. */
+  authMethod?: 'session' | 'apiToken' | 'device';
+  /** Set when authMethod is 'device'. */
+  deviceSessionId?: string;
 }
 
 /**
@@ -354,33 +366,56 @@ export function withLogging<
  */
 export interface WithAuthOptions {
   /**
-   * Whether `Authorization: Bearer <token>` API-token auth is accepted on this
-   * route. Defaults to true. Set to false for sensitive routes that must only
-   * be reachable from an interactive (cookie) session, e.g. API-token
-   * management itself, to prevent a token from minting or revoking tokens.
+   * Whether personal API tokens (`ntag_`) are accepted on this route. Defaults
+   * to true. Set to false for sensitive routes that must not be reachable from
+   * a script's long-lived token, e.g. API-token management itself.
+   *
+   * Native app device sessions (`ntsa_`) are interactive sign-ins and are
+   * accepted regardless of this option.
    */
-  allowApiToken?: boolean;
+  allowApiTokens?: boolean;
 }
 
 export function withAuth(
   handler: AuthenticatedHandler,
   options: WithAuthOptions = {}
 ) {
-  const allowApiToken = options.allowApiToken !== false;
+  const allowApiTokens = options.allowApiTokens !== false;
 
   return withLogging(async (
     request: Request,
     context?: RouteContext
   ): Promise<Response | NextResponse> => {
-    // API-token (Bearer) auth path: for programmatic clients and MCP servers.
-    // Bearer tokens are not subject to CSRF, so the Origin check is skipped
-    // (a non-browser client has no Origin header to validate anyway).
-    const bearer = allowApiToken ? extractBearerToken(request) : null;
-    if (bearer) {
+    const bearer = extractBearerToken(request);
+
+    // Native app device session. Bearer auth is not subject to CSRF, so the
+    // Origin check is skipped.
+    if (bearer && bearer.startsWith(ACCESS_TOKEN_PREFIX)) {
+      const resolved = await resolveDeviceAccessToken(bearer);
+      if (resolved.status === 'expired') {
+        return apiResponse.coded('access_token_expired', 'Access token expired');
+      }
+      if (resolved.status === 'invalid') {
+        return apiResponse.coded('invalid_token', 'Invalid token');
+      }
+
+      updateContext({ userId: resolved.userId });
+
+      const deviceSession = {
+        user: { id: resolved.userId },
+        authMethod: 'device',
+        deviceSessionId: resolved.sessionId,
+      } as AuthenticatedSession;
+
+      return handler(request, deviceSession, context as RouteContext);
+    }
+
+    // Personal API token: for programmatic clients and MCP servers.
+    if (bearer && allowApiTokens) {
       const resolved = await resolveApiToken(bearer);
 
       if (!resolved) {
-        return apiResponse.unauthorized('Invalid or expired API token');
+        return apiResponse.coded('invalid_token', 'Invalid or expired API token');
       }
 
       // Read-only tokens may only perform safe (non-mutating) requests.
@@ -392,6 +427,7 @@ export function withAuth(
 
       const tokenSession = {
         user: { id: resolved.userId },
+        authMethod: 'apiToken',
       } as AuthenticatedSession;
 
       return handler(request, tokenSession, context as RouteContext);
@@ -399,7 +435,7 @@ export function withAuth(
 
     // Session (cookie) auth path.
     if (!validateOrigin(request)) {
-      return apiResponse.forbidden('Invalid request origin');
+      return apiError('invalid_origin', 'Invalid request origin');
     }
 
     const session = await auth();
@@ -410,6 +446,10 @@ export function withAuth(
 
     updateContext({ userId: session.user.id });
 
-    return handler(request, session as AuthenticatedSession, context as RouteContext);
+    return handler(
+      request,
+      { ...(session as AuthenticatedSession), authMethod: 'session' },
+      context as RouteContext
+    );
   });
 }

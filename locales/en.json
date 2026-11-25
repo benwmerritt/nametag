@@ -64,7 +64,8 @@
     },
     "journal": "Journal",
     "createJournal": "New entry",
-    "map": "Map"
+    "map": "Map",
+    "calendar": "Calendar"
   },
   "notifications": {
     "push": {
@@ -152,7 +153,8 @@
         "itIT": "Italiano (Italian)",
         "ruRU": "Русский (Russian)",
         "nlNL": "Nederlands (Dutch)",
-        "frFR": "Français (French)"
+        "frFR": "Français (French)",
+        "plPL": "Polski (Polish)"
       }
     },
     "notifications": {
@@ -220,6 +222,7 @@
       "endpointDisabled": "Turned off after repeated failures. Fix the destination, then turn it back on.",
       "endpointDisabledManual": "Turned off. Turn it back on when you want reminders here again.",
       "endpointEnable": "Turn back on",
+      "endpointTurnOff": "Turn off",
       "endpointAddInvalid": "Check the topic URL and try again.",
       "endpointAddRateLimited": "Too many attempts. Wait a few minutes and try again.",
       "endpointAddDuplicate": "You have already added that topic.",
@@ -277,6 +280,7 @@
       "description": "Password and authentication",
       "passwordTitle": "Password",
       "passwordDescription": "Update your password to keep your account secure.",
+      "passwordSignsOutEverywhere": "Changing your password signs you out on every other browser and device.",
       "currentPassword": "Current Password",
       "newPassword": "New Password",
       "confirmPassword": "Confirm New Password",
@@ -291,7 +295,27 @@
       "errorValidation": "Please fix the errors below",
       "errorUpdate": "Failed to change password",
       "errorConnection": "Unable to connect to server. Please check your connection and try again.",
-      "successUpdate": "Password changed successfully"
+      "successUpdate": "Password changed successfully",
+      "devices": {
+        "title": "Signed-in devices",
+        "description": "Nametag apps signed in to your account. Sign out any device you don't recognize.",
+        "empty": "No apps are signed in. When you sign in to the Nametag app on a phone, it will show up here.",
+        "platformIos": "iOS",
+        "platformAndroid": "Android",
+        "version": "Version {version}",
+        "lastUsed": "Last used {date}",
+        "signedIn": "Signed in {date}",
+        "signOut": "Sign out",
+        "signOutAll": "Sign out all devices",
+        "confirmSignOutTitle": "Sign out {name}?",
+        "confirmSignOutBody": "The app on this device will need to sign in again.",
+        "confirmSignOutAllTitle": "Sign out all devices?",
+        "confirmSignOutAllBody": "Every Nametag app signed in to your account will need to sign in again.",
+        "cancel": "Cancel",
+        "signingOut": "Signing out...",
+        "loadError": "Couldn't load your devices. Try again later.",
+        "signOutError": "Couldn't sign out that device. Try again."
+      }
     },
     "carddav": {
       "title": "CardDAV Sync",
@@ -1614,6 +1638,12 @@
     "oneMember": "1 member",
     "membersCount": "{count} members"
   },
+  "calendar": {
+    "previousMonth": "Previous month",
+    "nextMonth": "Next month",
+    "today": "Today",
+    "noEvents": "Nothing planned this month"
+  },
   "map": {
     "title": "Map",
     "loading": "Loading map...",
@@ -1823,6 +1853,7 @@
   "errors": {
     "auth": {
       "invalidCredentials": "Invalid email or password",
+      "signInFailed": "Sign-in didn't work. Please try again.",
       "emailNotVerified": "Please verify your email before logging in",
       "accountLocked": "Account locked due to multiple failed login attempts. Please contact support.",
       "sessionExpired": "Your session has expired. Please log in again.",
@@ -2156,6 +2187,12 @@
       "iosStep3": "Tap Add",
       "dismiss": "Not now",
       "unsupported": "Your browser may be able to install this from its own menu. Look for Add to Home Screen, Install, or Add to Dock."
+    }
+  },
+  "nativeAuth": {
+    "expired": {
+      "title": "Sign-in link expired",
+      "body": "This sign-in link has expired. Go back to the app and try again."
     }
   }
 }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { NextResponse } from 'next/server';
 import { securityLogger } from './logger';
+import type { ApiErrorCode } from './api-errors';
 import { resolveTrustedClientIp, warnNoTrustedClientIp } from '@/lib/net/client-ip';
 
 interface RateLimitEntry {
@@ -34,6 +35,11 @@ export const rateLimitConfigs = {
   // Login: 5 attempts per 15 minutes
   login: {
     maxAttempts: 5,
+    windowMs: 15 * 60 * 1000,
+  },
+  // Native app token refresh: 60 attempts per 15 minutes
+  nativeRefresh: {
+    maxAttempts: 60,
     windowMs: 15 * 60 * 1000,
   },
   // Register: 3 attempts per hour
@@ -203,6 +209,7 @@ const PROCESS_BUCKET_ID = randomUUID();
 const SHARED_BUCKET_MULTIPLIERS: Record<RateLimitType, number> = {
   // Local cost only: CPU, or a token comparison.
   login: 20,
+  nativeRefresh: 20,
   resetPassword: 20,
   verifyEmail: 20,
   // Sends mail to an address the caller supplies.
@@ -371,6 +378,7 @@ export function checkRateLimit(
     return NextResponse.json(
       {
         error: `Too many attempts. Please try again in ${retryAfterMinutes} minute${retryAfterMinutes === 1 ? '' : 's'}.`,
+        code: 'rate_limited' satisfies ApiErrorCode,
         retryAfter: retryAfterSeconds,
       },
       {

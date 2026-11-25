@@ -17,9 +17,39 @@ https://your-instance.example.com
 
 If you're using the hosted service, that's `https://app.nametag.one`. Note that `nametag.one` itself is the marketing site and doesn't serve the API. If you're self-hosting, it's whatever domain you've configured.
 
+## Server info
+
+`GET /api/server-info` describes the server and needs no authentication. Native clients call it first to check that a URL really is a Nametag server and to decide which sign-in options to show.
+
+```bash
+curl https://your-instance.example.com/api/server-info
+```
+
+```json
+{
+  "name": "Nametag",
+  "version": "0.64.0",
+  "apiVersion": 1,
+  "mode": "selfhosted",
+  "auth": {
+    "password": true,
+    "google": false,
+    "oidc": { "enabled": true, "name": "Authentik" },
+    "emailVerificationRequired": false,
+    "registration": { "enabled": false, "reason": "registrationDisabled" }
+  },
+  "features": { "billing": false, "cardDav": true, "webPush": true }
+}
+```
+
+- `apiVersion` changes only when an endpoint used by native clients changes in a breaking way.
+- `registration.reason` appears only when registration is off. It is `passwordLoginDisabled` (sign-in is SSO only) or `registrationDisabled` (`DISABLE_REGISTRATION=true` and at least one account exists).
+- New fields may be added at any time. Clients should ignore fields they don't know.
+- Clients may cache the response for up to 60 seconds, so a change to registration settings can take that long to show. Shared proxies are told not to cache it.
+
 ## Authentication
 
-The API supports two authentication methods.
+The API supports three authentication methods.
 
 ### Session cookie
 
@@ -41,6 +71,17 @@ API tokens work on nearly every endpoint that accepts a session cookie. A few re
 - `/api/carddav/connection`, `/api/carddav/connection/test`, and `/api/carddav/backup`, which read or replace stored CardDAV credentials, and where the last two dial whatever host the caller supplies
 
 Requests to those with a bearer token return `401`. Each endpoint's accepted schemes are listed in the [OpenAPI spec](#interactive-docs), and see [API Tokens](/api/tokens/) for scopes, expiry, and full examples.
+
+### Native app session
+
+The Nametag mobile apps sign in with `POST /api/auth/native/login` and receive a one-hour access token (`ntsa_...`) and a refresh token (`ntsr_...`). The access token is sent like an API token:
+
+```bash
+curl https://your-instance.example.com/api/people \
+  -H "Authorization: Bearer ntsa_xxxxxxxx"
+```
+
+App sessions count as interactive sign-ins, so they are accepted on the endpoints that reject API tokens. Each signed-in app appears under **Settings > Security > Signed-in devices**, where it can be signed out. See [Native app sign-in](/api/native-auth/) for the full flow.
 
 ## Response format
 
@@ -75,6 +116,8 @@ Validation failures (HTTP 400) additionally include a `details` array with per-f
 }
 ```
 
+Every error also carries a stable machine-readable `code` (for example `group_name_taken`), and validation failures add a `fields` array. See [Errors](/api/errors/) for the response format and the full list of codes.
+
 ## Common status codes
 
 | Status | Meaning |
@@ -95,7 +138,7 @@ Validation failures (HTTP 400) additionally include a `details` array with per-f
 
 Rate limiting applies to sensitive, unauthenticated endpoints, not to the general CRUD API. It protects things like login, registration, password reset, and CardDAV credential testing from brute-force abuse. Limits are IP-based sliding windows: for example, login allows 5 attempts per 15 minutes, and registration allows 3 attempts per hour.
 
-Storage is Redis-backed in production when Redis is configured (falling back to an in-memory store per instance otherwise) and always in-memory in development. A `429` response includes a `Retry-After` header and a `retryAfter` field in seconds.
+Storage is Redis-backed in production when Redis is configured (falling back to an in-memory store per instance otherwise) and always in-memory in development. A `429` response includes a `Retry-After` header, `code: "rate_limited"`, and the wait in seconds: a top-level `retryAfter` field from the shared rate limiter, or `params.retryAfter` on the password reset and verification email cooldowns.
 
 Everyday endpoints like `/api/people` or `/api/groups` are not rate-limited beyond your plan's usage limits.
 

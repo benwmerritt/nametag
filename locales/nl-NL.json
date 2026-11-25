@@ -64,7 +64,8 @@
     },
     "journal": "Dagboek",
     "createJournal": "Nieuwe invoer",
-    "map": "Kaart"
+    "map": "Kaart",
+    "calendar": "Kalender"
   },
   "notifications": {
     "push": {
@@ -152,7 +153,8 @@
         "itIT": "Italiano (Italian)",
         "ruRU": "Русский (Russian)",
         "nlNL": "Nederlands (Dutch)",
-        "frFR": "Français (French)"
+        "frFR": "Français (French)",
+        "plPL": "Polski (Polish)"
       }
     },
     "notifications": {
@@ -220,6 +222,7 @@
       "endpointDisabled": "Uitgeschakeld na herhaalde fouten. Herstel de bestemming en zet hem daarna weer aan.",
       "endpointDisabledManual": "Uitgeschakeld. Zet hem weer aan wanneer je hier weer herinneringen wilt ontvangen.",
       "endpointEnable": "Weer aanzetten",
+      "endpointTurnOff": "Uitzetten",
       "endpointAddInvalid": "Controleer de URL van het onderwerp en probeer het opnieuw.",
       "endpointAddRateLimited": "Te veel pogingen. Wacht een paar minuten en probeer het opnieuw.",
       "endpointAddDuplicate": "Je hebt dat onderwerp al toegevoegd.",
@@ -277,6 +280,7 @@
       "description": "Wachtwoord en authenticatie",
       "passwordTitle": "Wachtwoord",
       "passwordDescription": "Werk uw wachtwoord bij om uw account veilig te houden.",
+      "passwordSignsOutEverywhere": "Als u uw wachtwoord wijzigt, wordt u afgemeld in alle andere browsers en op alle andere apparaten.",
       "currentPassword": "Huidige wachtwoord",
       "newPassword": "Nieuwe wachtwoord",
       "confirmPassword": "Bevestig nieuwe wachtwoord",
@@ -291,7 +295,27 @@
       "errorValidation": "Corrigeer de fouten hieronder",
       "errorUpdate": "Wachtwoord wijzigen mislukt",
       "errorConnection": "Kan geen verbinding maken met de server. Controleer uw verbinding en probeer het opnieuw.",
-      "successUpdate": "Wachtwoord succesvol gewijzigd"
+      "successUpdate": "Wachtwoord succesvol gewijzigd",
+      "devices": {
+        "title": "Ingelogde apparaten",
+        "description": "Nametag-apps die zijn ingelogd op je account. Log elk apparaat uit dat je niet herkent.",
+        "empty": "Er zijn geen apps ingelogd. Als je inlogt in de Nametag-app op een telefoon, verschijnt die hier.",
+        "platformIos": "iOS",
+        "platformAndroid": "Android",
+        "version": "Versie {version}",
+        "lastUsed": "Laatst gebruikt: {date}",
+        "signedIn": "Ingelogd op {date}",
+        "signOut": "Uitloggen",
+        "signOutAll": "Alle apparaten uitloggen",
+        "confirmSignOutTitle": "{name} uitloggen?",
+        "confirmSignOutBody": "De app op dit apparaat moet opnieuw inloggen.",
+        "confirmSignOutAllTitle": "Alle apparaten uitloggen?",
+        "confirmSignOutAllBody": "Elke Nametag-app die is ingelogd op je account moet opnieuw inloggen.",
+        "cancel": "Annuleren",
+        "signingOut": "Uitloggen...",
+        "loadError": "Je apparaten konden niet worden geladen. Probeer het later opnieuw.",
+        "signOutError": "Dat apparaat kon niet worden uitgelogd. Probeer het opnieuw."
+      }
     },
     "carddav": {
       "title": "CardDAV Synchronisatie",
@@ -1614,6 +1638,12 @@
     "oneMember": "1 lid",
     "membersCount": "{count} leden"
   },
+  "calendar": {
+    "previousMonth": "Vorige maand",
+    "nextMonth": "Volgende maand",
+    "today": "Vandaag",
+    "noEvents": "Niets gepland deze maand"
+  },
   "map": {
     "title": "Kaart",
     "loading": "Kaart wordt geladen...",
@@ -1823,6 +1853,7 @@
   "errors": {
     "auth": {
       "invalidCredentials": "Ongeldig e-mailadres of wachtwoord",
+      "signInFailed": "Inloggen is niet gelukt. Probeer het opnieuw.",
       "emailNotVerified": "Verifieer uw e-mail voordat u inlogt",
       "accountLocked": "Account vergrendeld vanwege te veel mislukte inlogpogingen. Neem contact op met ondersteuning.",
       "sessionExpired": "Uw sessie is verlopen. Log opnieuw in.",
@@ -2156,6 +2187,12 @@
       "iosStep3": "Tik op «Voeg toe»",
       "dismiss": "Niet nu",
       "unsupported": "Je browser kan de app misschien installeren via het eigen menu. Zoek naar «Zet op beginscherm», «Installeren» of «Voeg toe aan Dock»."
+    }
+  },
+  "nativeAuth": {
+    "expired": {
+      "title": "Inloglink verlopen",
+      "body": "Deze inloglink is verlopen. Ga terug naar de app en probeer het opnieuw."
     }
   }
 }

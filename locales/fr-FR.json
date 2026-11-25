@@ -64,7 +64,8 @@
     },
     "journal": "Journal",
     "createJournal": "Nouvelle entrée",
-    "map": "Carte"
+    "map": "Carte",
+    "calendar": "Calendrier"
   },
   "notifications": {
     "push": {
@@ -152,7 +153,8 @@
         "itIT": "Italiano (italien)",
         "ruRU": "Русский (russe)",
         "nlNL": "Nederlands (néerlandais)",
-        "frFR": "Français (France)"
+        "frFR": "Français (France)",
+        "plPL": "Polski (Polish)"
       }
     },
     "notifications": {
@@ -220,6 +222,7 @@
       "endpointDisabled": "Désactivée après des échecs répétés. Corrigez la destination, puis réactivez-la.",
       "endpointDisabledManual": "Désactivée. Réactivez-la quand vous voudrez recevoir des rappels ici à nouveau.",
       "endpointEnable": "Réactiver",
+      "endpointTurnOff": "Désactiver",
       "endpointAddInvalid": "Vérifiez l'URL du sujet et réessayez.",
       "endpointAddRateLimited": "Trop de tentatives. Attendez quelques minutes et réessayez.",
       "endpointAddDuplicate": "Vous avez déjà ajouté ce sujet.",
@@ -277,6 +280,7 @@
       "description": "Mot de passe et authentification",
       "passwordTitle": "Mot de passe",
       "passwordDescription": "Mettez à jour votre mot de passe pour garder votre compte sécurisé.",
+      "passwordSignsOutEverywhere": "Changer votre mot de passe vous déconnecte de tous les autres navigateurs et appareils.",
       "currentPassword": "Mot de passe actuel",
       "newPassword": "Nouveau mot de passe",
       "confirmPassword": "Confirmer le nouveau mot de passe",
@@ -291,7 +295,27 @@
       "errorValidation": "Corrigez les erreurs ci-dessous",
       "errorUpdate": "Échec du changement du mot de passe",
       "errorConnection": "Impossible de se connecter au serveur. Vérifiez votre connexion et réessayez.",
-      "successUpdate": "Mot de passe modifié"
+      "successUpdate": "Mot de passe modifié",
+      "devices": {
+        "title": "Appareils connectés",
+        "description": "Applications Nametag connectées à votre compte. Déconnectez tout appareil que vous ne reconnaissez pas.",
+        "empty": "Aucune application n'est connectée. Lorsque vous vous connecterez à l'application Nametag sur un téléphone, elle apparaîtra ici.",
+        "platformIos": "iOS",
+        "platformAndroid": "Android",
+        "version": "Version {version}",
+        "lastUsed": "Dernière utilisation : {date}",
+        "signedIn": "Connecté le {date}",
+        "signOut": "Se déconnecter",
+        "signOutAll": "Déconnecter tous les appareils",
+        "confirmSignOutTitle": "Déconnecter {name} ?",
+        "confirmSignOutBody": "L'application sur cet appareil devra se reconnecter.",
+        "confirmSignOutAllTitle": "Déconnecter tous les appareils ?",
+        "confirmSignOutAllBody": "Toutes les applications Nametag connectées à votre compte devront se reconnecter.",
+        "cancel": "Annuler",
+        "signingOut": "Déconnexion...",
+        "loadError": "Impossible de charger vos appareils. Réessayez plus tard.",
+        "signOutError": "Impossible de déconnecter cet appareil. Réessayez."
+      }
     },
     "carddav": {
       "title": "Synchronisation CardDAV",
@@ -1614,6 +1638,12 @@
     "oneMember": "1 membre",
     "membersCount": "{count} membres"
   },
+  "calendar": {
+    "previousMonth": "Mois précédent",
+    "nextMonth": "Mois suivant",
+    "today": "Aujourd'hui",
+    "noEvents": "Rien de prévu ce mois-ci"
+  },
   "map": {
     "title": "Carte",
     "loading": "Chargement de la carte...",
@@ -1823,6 +1853,7 @@
   "errors": {
     "auth": {
       "invalidCredentials": "E-mail ou mot de passe invalide",
+      "signInFailed": "La connexion a échoué. Veuillez réessayer.",
       "emailNotVerified": "Vérifiez votre e-mail avant de vous connecter",
       "accountLocked": "Compte verrouillé après plusieurs tentatives de connexion échouées. Contactez le support.",
       "sessionExpired": "Votre session a expiré. Veuillez vous reconnecter.",
@@ -2156,6 +2187,12 @@
       "iosStep3": "Appuyez sur Ajouter",
       "dismiss": "Plus tard",
       "unsupported": "Votre navigateur peut peut-être installer l'application depuis son propre menu. Cherchez Sur l'écran d'accueil, Installer ou Ajouter au Dock."
+    }
+  },
+  "nativeAuth": {
+    "expired": {
+      "title": "Lien de connexion expiré",
+      "body": "Ce lien de connexion a expiré. Retournez dans l'application et réessayez."
     }
   }
 }

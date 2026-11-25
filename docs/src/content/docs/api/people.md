@@ -487,7 +487,7 @@ curl -X POST https://your-instance.example.com/api/people/clx1/important-dates \
 { "importantDate": { "id": "clxdate1", "title": "", "date": "1815-12-10T00:00:00.000Z" } }
 ```
 
-Returns `403` if you've reached your plan's reminder limit.
+Returns `403` if you've reached your plan's reminder limit (`code` is `plan_limit_reached`), `409` if the person already has a date of this predefined type (`code` is `important_date_type_exists`, `params.type` names it). The update and restore endpoints return the same `409`.
 
 ### Update an important date
 
@@ -579,6 +579,8 @@ curl -X POST https://your-instance.example.com/api/people/clx1/photo \
 { "photo": "clx1-a1b2c3.jpg" }
 ```
 
+Returns `400` with `code` `photo_missing` if no `photo` field is sent, and `413` with `code` `photo_too_large` (`params.maxBytes`) if the file exceeds 50 MB.
+
 ### Remove a person photo
 
 ```
@@ -606,4 +608,12 @@ Returns the raw image bytes with an appropriate `Content-Type`, served from disk
 curl https://your-instance.example.com/api/photos/clx1 \
   -H "Authorization: Bearer ntag_xxx" \
   -o ada.jpg
+```
+
+The response carries an `ETag` that changes whenever the photo does, and `Cache-Control: private, no-cache`, so a client may keep a copy but should check it before use. Send the stored tag back in `If-None-Match`: if the photo is unchanged, the server answers `304 Not Modified` with no body.
+
+```bash
+curl -i https://your-instance.example.com/api/photos/clx1 \
+  -H "Authorization: Bearer ntag_xxx" \
+  -H 'If-None-Match: "q8Jx2nV0b1Lw7mR3kTzA9c"'
 ```
