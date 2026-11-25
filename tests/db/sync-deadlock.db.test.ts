@@ -121,7 +121,7 @@ describe('concurrent cross-contact writes for one user', () => {
     const group = await testPrisma.group.create({ data: { userId, name: 'Trashed group', deletedAt: new Date() } });
     await testPrisma.personGroup.create({ data: { personId: b.id, groupId: group.id } });
 
-    expect(await raceWithUserLockHolder(() =>
+    expect(await raceWithUserLockHolder(async () =>
       prismaIncludingDeleted.personGroup.deleteMany({ where: { groupId: group.id } })
     )).toEqual(['fulfilled', 'fulfilled']);
     expect(await testPrisma.personGroup.count({ where: { groupId: group.id } })).toBe(0);
