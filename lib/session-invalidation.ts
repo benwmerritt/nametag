@@ -63,8 +63,8 @@ export interface InvalidateUserSessionsOptions {
 
 /**
  * Change the password and sign out everywhere: stamps the cut-off for web
- * JWTs and deletes every native app session (except `keepDeviceSessionId`),
- * in one transaction.
+ * JWTs, deletes outstanding sign-in codes, and deletes every native app
+ * session except `keepDeviceSessionId` in one transaction.
  */
 export async function invalidateUserSessions(
   userId: string,
@@ -80,6 +80,7 @@ export async function invalidateUserSessions(
     prisma.deviceSession.deleteMany({
       where: keepDeviceSessionId ? { userId, id: { not: keepDeviceSessionId } } : { userId },
     }),
+    prisma.nativeAuthCode.deleteMany({ where: { userId } }),
   ]);
   await writeCache(userId, now.getTime());
   log.info({ event: 'auth.sessions_invalidated', userId }, 'All sessions invalidated after password change');

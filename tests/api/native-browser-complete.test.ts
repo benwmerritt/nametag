@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   getToken: vi.fn(),
   issue: vi.fn(),
   blacklist: vi.fn(),
+  isBlacklisted: vi.fn(),
+  rejectJwt: vi.fn(),
 }));
 
 vi.mock('next/headers', () => ({
@@ -21,7 +23,11 @@ vi.mock('next/headers', () => ({
 }));
 vi.mock('@/lib/native-auth/codes', () => ({ issueNativeAuthCode: mocks.issue }));
 vi.mock('next-auth/jwt', () => ({ getToken: mocks.getToken }));
-vi.mock('@/lib/token-blacklist', () => ({ blacklistToken: mocks.blacklist }));
+vi.mock('@/lib/token-blacklist', () => ({
+  blacklistToken: mocks.blacklist,
+  isTokenBlacklisted: mocks.isBlacklisted,
+}));
+vi.mock('@/lib/session-invalidation', () => ({ shouldRejectJwt: mocks.rejectJwt }));
 vi.mock('@/lib/prisma', () => ({ prisma: {} }));
 vi.mock('@/lib/env', () => ({ env: { NEXTAUTH_SECRET: 's'.repeat(32), NEXTAUTH_URL: 'https://nametag.example' } }));
 vi.mock('@/lib/logger', () => {
@@ -47,6 +53,8 @@ describe('GET /api/auth/native/browser/complete', () => {
     mocks.store.clear();
     mocks.deleted = [];
     mocks.issue.mockResolvedValue('ntc_code');
+    mocks.isBlacklisted.mockResolvedValue(false);
+    mocks.rejectJwt.mockResolvedValue(false);
   });
 
   it('shows the expired page without a valid pending cookie', async () => {
@@ -67,6 +75,18 @@ describe('GET /api/auth/native/browser/complete', () => {
     expect(mocks.issue).toHaveBeenCalledWith('u1', expect.objectContaining({ codeChallenge: expect.any(String), device }));
     expect(mocks.blacklist).toHaveBeenCalledWith('j1', expect.any(Date));
     expect(mocks.deleted).toContain(PENDING_COOKIE);
+  });
+
+  it.each(['logout', 'password change'])('rejects a web session revoked by %s', async (reason) => {
+    mocks.store.set(PENDING_COOKIE, pendingValue());
+    mocks.getToken.mockResolvedValue({ id: 'u1', jti: 'j1', authTime: nowSec() });
+    mocks.isBlacklisted.mockResolvedValue(reason === 'logout');
+    mocks.rejectJwt.mockResolvedValue(reason === 'password change');
+
+    const res = await complete();
+
+    expect(res.headers.get('location')).toBe(`nametag://auth/callback?error=sign_in_failed&state=${STATE}`);
+    expect(mocks.issue).not.toHaveBeenCalled();
   });
 
   it('returns the latest state when start ran twice (Review Focus 4)', async () => {

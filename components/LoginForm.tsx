@@ -164,6 +164,12 @@ export default function LoginForm({ initialError = false }: LoginFormProps) {
           </div>
         )}
 
+        {!showCredentials && error && (
+          <div role="alert" className="bg-warning/10 border border-warning/30 text-warning px-4 py-3 rounded-lg">
+            {error}
+          </div>
+        )}
+
         {showCredentials && (
           <form className="mt-8 space-y-6 bg-surface border border-border rounded-lg p-8" onSubmit={handleSubmit}>
             {resendSuccess && (

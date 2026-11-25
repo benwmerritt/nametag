@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { env } from '@/lib/env';
 import { withLogging } from '@/lib/api-utils';
+import { shouldRejectJwt } from '@/lib/session-invalidation';
+import { isTokenBlacklisted } from '@/lib/token-blacklist';
 import { createModuleLogger } from '@/lib/logger';
 import { issueNativeAuthCode } from '@/lib/native-auth/codes';
 import { decodeWebSessionToken, endWebSession } from '@/lib/native-auth/web-session';
@@ -40,16 +42,15 @@ export const GET = withLogging(async function GET(request: Request) {
   // turned into a code: its sign-in time must not predate the pending cookie.
   const token = await decodeWebSessionToken(request);
   const flowStart = Math.floor((pending.exp - PENDING_TTL_MS) / 1000);
-  const userId =
-    token && typeof token.id === 'string' && typeof token.authTime === 'number' && token.authTime >= flowStart
-      ? token.id
-      : null;
-  if (!userId) {
+  if (!token || typeof token.id !== 'string' || typeof token.authTime !== 'number' ||
+      token.authTime < flowStart || !token.jti ||
+      await isTokenBlacklisted(token.jti) || await shouldRejectJwt(token)) {
     const error = reason ?? 'sign_in_failed';
     log.info({ event: 'auth.native.browser.failed', provider: pending.provider, reason: error }, 'Native SSO failed');
     return appRedirect({ error, state: pending.state });
   }
 
+  const userId = token.id;
   const code = await issueNativeAuthCode(userId, pending);
   await endWebSession(request);
 

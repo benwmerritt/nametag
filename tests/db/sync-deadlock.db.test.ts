@@ -1,6 +1,6 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import { testPrisma, createUser, resetDb } from './client';
-import { prisma } from '@/lib/prisma';
+import { prisma, prismaIncludingDeleted } from '@/lib/prisma';
 import { lockUserRow } from '@/lib/db/user-lock';
 import { withDeadlockRetry } from '@/lib/db/deadlock';
 import { updatePersonFromVCard } from '@/lib/carddav/vcard-import';
@@ -42,6 +42,7 @@ describe('concurrent cross-contact writes for one user', () => {
     await resetDb();
     await testPrisma.$disconnect();
     await prisma.$disconnect();
+    await prismaIncludingDeleted.$disconnect();
   });
 
   // Transaction A holds the user lock (from updating contact A) and then wants
@@ -115,6 +116,16 @@ describe('concurrent cross-contact writes for one user', () => {
     const results = await Promise.allSettled([holder, victim]);
     return results.map((r) => (r.status === 'rejected' ? String(r.reason) : r.status));
   }
+
+  it('retries an unfiltered group membership purge that loses the deadlock', async () => {
+    const group = await testPrisma.group.create({ data: { userId, name: 'Trashed group', deletedAt: new Date() } });
+    await testPrisma.personGroup.create({ data: { personId: b.id, groupId: group.id } });
+
+    expect(await raceWithUserLockHolder(() =>
+      prismaIncludingDeleted.personGroup.deleteMany({ where: { groupId: group.id } })
+    )).toEqual(['fulfilled', 'fulfilled']);
+    expect(await testPrisma.personGroup.count({ where: { groupId: group.id } })).toBe(0);
+  });
 
   it('retries a CardDAV update that loses the deadlock', async () => {
     await testPrisma.personPhone.create({ data: { personId: b.id, type: 'mobile', number: '1' } });

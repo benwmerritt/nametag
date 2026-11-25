@@ -1,5 +1,6 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import { testPrisma, createUser, resetDb } from './client';
+import { prismaIncludingDeleted } from '@/lib/prisma';
 import { type SyncPage } from '@/lib/sync/changes';
 import { getPage } from './sync-helpers';
 
@@ -41,6 +42,7 @@ describe('nametag_sync_backfill', () => {
   afterAll(async () => {
     await resetDb();
     await testPrisma.$disconnect();
+    await prismaIncludingDeleted.$disconnect();
   });
 
   it('numbers rows that predate the triggers so a sync from 0 returns them', async () => {
@@ -64,7 +66,7 @@ describe('nametag_sync_backfill', () => {
     await testPrisma.$executeRaw`SELECT nametag_sync_backfill()`;
 
     for (const [userId, rows] of [[u1, rows1], [u2, rows2]] as const) {
-      const page = await getPage(testPrisma, userId, BigInt(0), 500);
+      const page = await getPage(prismaIncludingDeleted, userId, BigInt(0), 500);
       const seen = pageIds(page);
       expect(seen.sort()).toEqual([...rows].sort());
       expect(new Set(seen).size).toBe(seen.length);

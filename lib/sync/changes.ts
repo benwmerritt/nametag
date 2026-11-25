@@ -1,4 +1,5 @@
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { prismaIncludingDeleted } from '@/lib/prisma';
 import { multiValueFieldsInclude } from '@/lib/prisma-queries';
 
 // Delta sync reads deliberately include soft-deleted rows (deletedAt set), so
@@ -79,7 +80,7 @@ export function parseSyncCursor(raw: string): SyncCursor | null {
 }
 
 export async function getChangesSince(
-  client: PrismaClient, userId: string, cursorIn: bigint | SyncCursor, limit: number
+  client: typeof prismaIncludingDeleted, userId: string, cursorIn: bigint | SyncCursor, limit: number
 ): Promise<SyncResult> {
   const parsed: SyncCursor = typeof cursorIn === 'bigint' ? { seq: cursorIn, fullSyncFloor: null } : cursorIn;
   const cursor = parsed.seq;

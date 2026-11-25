@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client';
+import type { prismaIncludingDeleted } from '@/lib/prisma';
 
 /**
  * Deletes tombstones older than `olderThan` and raises each affected user's
@@ -8,7 +8,7 @@ import type { PrismaClient } from '@prisma/client';
  * Deleting by `syncVersion <= max` also removes any newer-dated tombstone with
  * a lower version, which is safe because the floor covers it.
  */
-export async function purgeTombstones(client: PrismaClient, olderThan: Date): Promise<number> {
+export async function purgeTombstones(client: typeof prismaIncludingDeleted, olderThan: Date): Promise<number> {
   const groups = await client.syncTombstone.groupBy({
     by: ['userId'],
     where: { deletedAt: { lt: olderThan } },

@@ -133,11 +133,11 @@ describe('fetchAllVCards', () => {
     expect(logMock.warn).not.toHaveBeenCalled();
   });
 
-  it('logs a warning when the fetch by URL returns no contacts although some were listed', async () => {
+  it('rejects a snapshot when the fetch by URL returns no contacts although some were listed', async () => {
     fetchVCardsMock.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
     propfindMock.mockResolvedValueOnce([{ href: '/carddav/32/a.vcf', ok: true }]);
 
-    await fetchAllVCards(client, addressBook);
+    await expect(fetchAllVCards(client, addressBook)).rejects.toThrow('incomplete address book');
 
     expect(logMock.warn).toHaveBeenCalledTimes(1);
     expect(logMock.warn).toHaveBeenCalledWith(
@@ -147,14 +147,14 @@ describe('fetchAllVCards', () => {
     expect(logMock.info).not.toHaveBeenCalled();
   });
 
-  it('logs a warning when the fetch by URL returns fewer contacts than were listed', async () => {
+  it('rejects a snapshot when the fetch by URL returns fewer contacts than were listed', async () => {
     fetchVCardsMock.mockResolvedValueOnce([]).mockResolvedValueOnce([card('a')]);
     propfindMock.mockResolvedValueOnce([
       { href: '/carddav/32/a.vcf', ok: true },
       { href: '/carddav/32/b.vcf', ok: true },
     ]);
 
-    await fetchAllVCards(client, addressBook);
+    await expect(fetchAllVCards(client, addressBook)).rejects.toThrow('incomplete address book');
 
     expect(logMock.warn).toHaveBeenCalledWith(
       expect.objectContaining({ listed: 2, fetched: 1 }),
@@ -162,13 +162,11 @@ describe('fetchAllVCards', () => {
     );
   });
 
-  it('logs a warning when the listing succeeds but the fetch by URL fails', async () => {
+  it('rejects a snapshot when the listing succeeds but the fetch by URL fails', async () => {
     fetchVCardsMock.mockResolvedValueOnce([]).mockRejectedValueOnce(new Error('REPORT rejected'));
     propfindMock.mockResolvedValueOnce([{ href: '/carddav/32/a.vcf', ok: true }]);
 
-    const result = await fetchAllVCards(client, addressBook);
-
-    expect(result).toEqual([]);
+    await expect(fetchAllVCards(client, addressBook)).rejects.toThrow('REPORT rejected');
     expect(logMock.warn).toHaveBeenCalledTimes(1);
     expect(logMock.warn).toHaveBeenCalledWith(
       expect.objectContaining({ listed: 1, fetched: 0 }),

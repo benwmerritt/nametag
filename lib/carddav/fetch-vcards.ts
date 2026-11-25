@@ -53,23 +53,19 @@ export async function fetchAllVCards(
   try {
     fetched = await client.fetchVCards({ addressBook, objectUrls });
   } catch (error) {
-    // The listing found contacts but fetching them failed: the same silent
-    // "nothing imported" symptom, so it must not stay at debug.
     log.warn(
       { err: toError(error), event: 'carddav.fetch.fallback', listed: objectUrls.length, fetched: 0 },
       'Fetching listed contacts by URL failed',
     );
-    return vCards;
+    throw error;
   }
 
   const fallback = { event: 'carddav.fetch.fallback', listed: objectUrls.length, fetched: fetched.length };
   if (fetched.length < objectUrls.length) {
-    // Listing found contacts but fetching them did not return all: the same
-    // silent "nothing imported" symptom, so it must not stay at info.
     log.warn(fallback, 'Fetching contacts by URL returned fewer contacts than were listed');
-  } else {
-    log.info(fallback, 'Address book query returned no contacts, fetched them by URL instead');
+    throw new Error('CardDAV returned an incomplete address book');
   }
+  log.info(fallback, 'Address book query returned no contacts, fetched them by URL instead');
   return fetched;
 }
 

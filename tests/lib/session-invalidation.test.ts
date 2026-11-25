@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   findUnique: vi.fn(),
   update: vi.fn(),
   deleteMany: vi.fn(),
+  deleteCodes: vi.fn(),
   transaction: vi.fn(),
   redisConnected: vi.fn(() => false),
   redisGet: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock('@/lib/prisma', () => ({
   prisma: {
     user: { findUnique: mocks.findUnique, update: mocks.update },
     deviceSession: { deleteMany: mocks.deleteMany },
+    nativeAuthCode: { deleteMany: mocks.deleteCodes },
     $transaction: mocks.transaction,
   },
 }));
@@ -41,12 +43,13 @@ describe('session invalidation', () => {
     __resetSessionInvalidationCacheForTests();
     mocks.update.mockReturnValue('update-op');
     mocks.deleteMany.mockReturnValue('delete-op');
+    mocks.deleteCodes.mockReturnValue('delete-codes-op');
     mocks.transaction.mockResolvedValue([]);
     mocks.redisConnected.mockReturnValue(false);
     mocks.redisGet.mockReset();
   });
 
-  it('updates the password, stamps the cut-off and deletes device sessions in one transaction', async () => {
+  it('updates the password, stamps the cut-off and deletes device sessions and codes in one transaction', async () => {
     const now = new Date('2026-10-17T10:00:00.500Z');
     await invalidateUserSessions('u1', 'hash', { extra: { passwordResetToken: null }, now });
 
@@ -55,7 +58,8 @@ describe('session invalidation', () => {
       data: { password: 'hash', sessionsInvalidatedAt: now, passwordResetToken: null },
     });
     expect(mocks.deleteMany).toHaveBeenCalledWith({ where: { userId: 'u1' } });
-    expect(mocks.transaction).toHaveBeenCalledWith(['update-op', 'delete-op']);
+    expect(mocks.deleteCodes).toHaveBeenCalledWith({ where: { userId: 'u1' } });
+    expect(mocks.transaction).toHaveBeenCalledWith(['update-op', 'delete-op', 'delete-codes-op']);
   });
 
   it('keeps the calling device session when keepDeviceSessionId is given', async () => {

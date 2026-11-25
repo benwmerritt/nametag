@@ -1,10 +1,15 @@
 import { describe, it, expect, afterAll, beforeEach } from 'vitest';
 import { testPrisma, createUser, resetDb } from './client';
+import { prismaIncludingDeleted } from '@/lib/prisma';
 import { purgeTombstones } from '@/lib/sync/tombstones';
 
 describe('purgeTombstones', () => {
   beforeEach(async () => { await resetDb(); });
-  afterAll(async () => { await resetDb(); await testPrisma.$disconnect(); });
+  afterAll(async () => {
+    await resetDb();
+    await testPrisma.$disconnect();
+    await prismaIncludingDeleted.$disconnect();
+  });
 
   it('deletes old tombstones and raises each user\'s floor to the highest purged version', async () => {
     const u = (await createUser()).id;
@@ -20,7 +25,7 @@ describe('purgeTombstones', () => {
     const old = new Date('2020-01-01');
     await testPrisma.syncTombstone.updateMany({ where: { id: { in: [stones[0].id, stones[1].id] } }, data: { deletedAt: old } });
 
-    const count = await purgeTombstones(testPrisma, new Date('2021-01-01'));
+    const count = await purgeTombstones(prismaIncludingDeleted, new Date('2021-01-01'));
 
     expect(count).toBe(2);
     const left = await testPrisma.syncTombstone.findMany({ where: { userId: u } });

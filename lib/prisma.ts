@@ -56,11 +56,8 @@ function isStandalone(params: object): boolean {
     && (!('transaction' in internal) || internal.transaction === undefined || internal.transaction === null);
 }
 
-// Create an extended Prisma client with soft-delete filtering
-function createExtendedClient() {
-  const baseClient = createBaseClient();
-
-  return baseClient.$extends({
+function createRetryingClient() {
+  return createBaseClient().$extends({
     // A standalone write can be the victim of a delta sync deadlock (see
     // lib/db/deadlock.ts); it committed nothing, so it is run again.
     // Queries inside a transaction are never rerun here: the deadlock aborted
@@ -79,7 +76,11 @@ function createExtendedClient() {
         }
       },
     },
-  }).$extends({
+  });
+}
+
+function createExtendedClient() {
+  return createRetryingClient().$extends({
     name: 'softDelete',
     query: {
       $allModels: {
@@ -139,7 +140,7 @@ type ExtendedPrismaClient = ReturnType<typeof createExtendedClient>;
 
 const globalForPrisma = globalThis as unknown as {
   prisma: ExtendedPrismaClient | undefined;
-  prismaIncludingDeleted: PrismaClient | undefined;
+  prismaIncludingDeleted: ReturnType<typeof createRetryingClient> | undefined;
 };
 
 export const prisma = globalForPrisma.prisma ?? createExtendedClient();
@@ -159,8 +160,8 @@ if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
  * Every read through this client is unfiltered, so scope it deliberately. Reach
  * for `prisma` unless the query is specifically about deleted rows.
  */
-export const prismaIncludingDeleted: PrismaClient =
-  globalForPrisma.prismaIncludingDeleted ?? createBaseClient();
+export const prismaIncludingDeleted =
+  globalForPrisma.prismaIncludingDeleted ?? createRetryingClient();
 
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prismaIncludingDeleted = prismaIncludingDeleted;
